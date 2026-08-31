@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PharmKinetix — Vancomycin IV Bolus Module</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Atkinson+Hyperlegible+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --royal:#3453B4; --cornflower:#6C8FE8; --salmon:#E8785C; --sage:#3F9E6E;
+    --sage-bg:#E9F5EE; --peach-bg:#FDEDE6; --sky-bg:#EAF1FD;
+    --violet:#6B62C9; --violet-bg:#F1EEFB; --amber:#C98A3D; --amber-bg:#FBF1E4;
+    --cream:#FAF8F4; --ink:#1F2430; --ink-soft:#5B6270; --line:#DCE1EA; --track:#9FADC2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:'Atkinson Hyperlegible', sans-serif; background:var(--cream); color:var(--ink); line-height:1.5;}
+  .mono{font-family:'Atkinson Hyperlegible Mono', monospace;}
+
+  header{background:var(--royal); color:#fff; padding:18px clamp(16px,4vw,40px) 0;}
+  .brand{font-size:0.84rem; letter-spacing:0.14em; text-transform:uppercase; opacity:0.75;}
+  header h1{margin:2px 0 14px; font-size:clamp(1.25rem,3vw,1.6rem);}
+
+  nav.tabs{display:flex; gap:4px; overflow-x:auto;}
+  nav.tabs button{
+    font-family:inherit; font-size:1rem; font-weight:700;
+    background:rgba(255,255,255,0.08); color:#fff; border:none;
+    padding:10px 18px; border-radius:10px 10px 0 0; cursor:pointer;
+    white-space:nowrap; opacity:0.72; border-bottom:3px solid transparent;
+  }
+  nav.tabs button.active{background:var(--cream); color:var(--ink); opacity:1;}
+  nav.tabs button[data-tab="theory"].active{border-bottom-color:var(--violet);}
+  nav.tabs button[data-tab="simulation"].active{border-bottom-color:var(--royal);}
+  nav.tabs button[data-tab="case"].active{border-bottom-color:var(--cornflower);}
+  nav.tabs button[data-tab="assessment"].active{border-bottom-color:var(--amber);}
+
+  main{max-width:1280px; margin:0 auto; padding:22px clamp(16px,4vw,40px) 60px;}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+
+  .twocol{display:grid; grid-template-columns:380px 1fr; gap:20px; align-items:start;}
+  @media(max-width:860px){.twocol{grid-template-columns:1fr;}}
+  .col{max-height:calc(100vh - 150px); overflow-y:auto; padding-right:6px;}
+  @media(max-width:860px){.col{max-height:none;}}
+
+  .panel{border-radius:14px; padding:20px 22px; margin-bottom:18px; border:1px solid var(--line);}
+  .panel h2{margin:0 0 12px; font-size:1.12rem; display:flex; align-items:center; gap:8px;}
+  .panel h3{margin:18px 0 8px; font-size:1rem;}
+  .panel .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+
+  .theory{background:var(--violet-bg); border-color:#D8D0F2;}
+  .theory .dot{background:var(--violet);}
+  .theory-eq{background:var(--sky-bg); border-color:#C9DAF6;}
+  .theory-eq .dot{background:var(--cornflower);}
+  .theory-matrix{background:var(--amber-bg); border-color:#EAD2A8;}
+  .theory-matrix .dot{background:var(--amber);}
+  .arrow{font-size:1.6em; font-weight:700; display:inline-block; line-height:1; vertical-align:middle;}
+  .sim{background:#fff;}
+  .outputs{background:var(--sage-bg); border-color:#BFE3CE;}
+  .outputs .dot{background:var(--sage);}
+  .warning{background:var(--peach-bg); border-color:#F3CDBA;}
+  .warning.safe{background:var(--sage-bg); border-color:#BFE3CE;}
+  .warning .dot{background:var(--salmon);}
+  .warning.safe .dot{background:var(--sage);}
+  .case{background:var(--sky-bg); border-color:#C9DAF6;}
+  .case .dot{background:var(--cornflower);}
+  .assess{background:var(--amber-bg); border-color:#EAD2A8;}
+  .assess .dot{background:var(--amber);}
+
+  /* Headers/labels: small + colored, but NEVER text-transform:uppercase, since that
+     mangles unit letters like "h" -> "H" inside things like "Time (h)" or "Trough @12h" */
+  table{width:100%; border-collapse:collapse; font-size:0.96rem;}
+  td, th{padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:left;}
+  th{font-size:0.85rem; letter-spacing:0.02em; color:var(--ink-soft); font-weight:700;}
+  tr.highlight td{background:rgba(63,158,110,0.14); font-weight:700;}
+  .eq-table td:first-child{font-family:'Atkinson Hyperlegible Mono', monospace; font-weight:700;}
+  .eq-note{font-size:0.88rem; color:var(--ink-soft);}
+
+  /* ---- Reusable control widget ---- */
+  .ctrl{}
+  .param-box{border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:14px; background:#fff; box-shadow:0 1px 2px rgba(31,36,48,0.05);}
+  #caseControls{display:grid; grid-template-columns:1fr 1fr; column-gap:22px;}
+  @media(max-width:600px){#caseControls{grid-template-columns:1fr;}}
+  .ctrl-label-row{display:flex; justify-content:space-between; align-items:baseline; font-weight:700; font-size:0.98rem; margin-bottom:6px;}
+  .ctrl-value{font-family:'Atkinson Hyperlegible Mono', monospace; color:var(--royal); font-weight:700;}
+  .unit-toggle{display:inline-flex; gap:4px; margin-bottom:6px;}
+  .unit-btn{
+    font-family:inherit; font-size:0.84rem; font-weight:700; padding:4px 11px; border-radius:12px;
+    border:1px solid var(--cornflower); background:#fff; color:var(--royal); cursor:pointer;
+  }
+  .unit-btn.active{background:var(--royal); color:#fff; border-color:var(--royal);}
+  /* Custom slider: darker, more visible track with a larger thumb and a
+     clean white ring so it reads clearly even when projected in class. */
+  input[type=range]{
+    width:100%; height:20px; cursor:pointer;
+    -webkit-appearance:none; appearance:none; background:transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:6px; background:var(--track); border-radius:3px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:18px; height:18px; border-radius:50%;
+    background:var(--cornflower); border:3px solid #fff;
+    box-shadow:0 0 0 1.5px var(--cornflower), 0 1px 3px rgba(31,36,48,0.25);
+    margin-top:-6px; cursor:pointer;
+  }
+  input[type=range]::-moz-range-track{
+    height:6px; background:var(--track); border-radius:3px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px; height:18px; border-radius:50%;
+    background:var(--cornflower); border:3px solid #fff;
+    box-shadow:0 0 0 1.5px var(--cornflower), 0 1px 3px rgba(31,36,48,0.25);
+    cursor:pointer;
+  }
+  .ctrl-bottom-row{display:flex; align-items:center; gap:10px; margin-top:6px; flex-wrap:wrap;}
+  .ctrl-number{font-family:'Atkinson Hyperlegible Mono', monospace; font-size:0.94rem; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:96px;}
+  .range-edit{font-size:0.84rem; color:var(--ink-soft); display:flex; align-items:center; gap:5px;}
+  .range-edit input{font-family:'Atkinson Hyperlegible Mono', monospace; font-size:0.84rem; width:62px; padding:4px 6px; border:1px solid var(--line); border-radius:5px;}
+  .sub{color:var(--ink-soft); font-size:0.86rem; margin-top:4px;}
+
+  .ref-chip{
+    display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--cornflower);
+    border-radius:20px; padding:7px 14px; font-size:0.9rem; margin-top:8px; color:var(--royal); font-weight:700;
+  }
+  .ref-chip button{background:none; border:none; cursor:pointer; color:var(--salmon); font-weight:700; font-size:1rem; padding:0 2px;}
+
+  button.action{
+    font-family:inherit; font-weight:700; font-size:0.96rem;
+    background:var(--royal); color:#fff; border:none; border-radius:8px;
+    padding:9px 16px; cursor:pointer; margin-top:6px;
+  }
+  button.action:hover{background:#2A4392;}
+  button.action.secondary{background:#fff; color:var(--royal); border:1px solid var(--royal);}
+
+  .chart-wrap{background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:4px;}
+  #pkSvg, #caseSvg{width:100%; height:auto; display:block;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; font-size:0.88rem; color:var(--ink-soft);}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .legend i{width:16px; height:3px; display:inline-block; border-radius:2px;}
+
+  .out-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px;}
+  .out-grid.centered .out-card{text-align:center;}
+  .out-card{background:#fff; border-radius:10px; padding:10px 12px; border:1px solid #CFEBDA;}
+  .out-card .label{font-size:0.8rem; color:var(--ink-soft);}
+  .out-card .value{font-family:'Atkinson Hyperlegible Mono', monospace; font-size:1.2rem; font-weight:700; color:var(--sage);}
+  .out-card .unit{font-size:0.8rem; color:var(--ink-soft);}
+
+  .q{background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:12px;}
+  .q label{display:block; margin-bottom:8px; cursor:pointer; font-size:1rem;}
+  .q input[type=radio]{margin-right:8px;}
+  .feedback{margin-top:8px; font-weight:700; padding:8px 10px; border-radius:8px; display:none;}
+  .feedback.correct{display:block; background:#DFF3E7; color:#1F6B41;}
+  .feedback.incorrect{display:block; background:#FBE3DB; color:#A2401F;}
+
+  .pb-q{background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:12px;}
+  .pb-q .field{display:flex; align-items:center; gap:8px; margin-top:8px;}
+  .pb-q input[type=text]{width:120px; font-family:'Atkinson Hyperlegible Mono', monospace; padding:5px 7px; border:1px solid var(--line); border-radius:6px;}
+
+  footer{text-align:center; color:var(--ink-soft); font-size:0.86rem; padding:20px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">PharmKinetix · Module 1</div>
+  <h1>Vancomycin — 1-Compartment IV Bolus</h1>
+  <nav class="tabs">
+    <button data-tab="theory" class="active">Theory</button>
+    <button data-tab="simulation">Simulation</button>
+    <button data-tab="case">Case Studies</button>
+    <button data-tab="assessment">Assessment</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ===================== THEORY TAB ===================== -->
+  <section class="tabpanel active" id="tab-theory">
+    <div class="panel theory">
+      <h2><span class="dot"></span>The Model</h2>
+      <p style="margin-top:0;">IV bolus → distributed into <strong>V<sub>d</sub></strong> (volume of distribution) → eliminated at rate <strong>Cl</strong> (clearance). One-compartment, first-order elimination.</p>
+      <p style="margin-bottom:0; font-size:0.95rem; color:var(--ink-soft);">Assumptions: instantaneous distribution (single well-stirred compartment) · open system (all drug eventually leaves) · linear (concentration-independent PK) · stationary (parameters don't change over the observation period).</p>
+    </div>
+
+    <div class="panel theory-eq">
+      <h2><span class="dot"></span>Equation Reference</h2>
+      <table class="eq-table">
+        <tr><th>Parameter</th><th>Equation</th><th>Note</th></tr>
+        <tr><td>C₀</td><td>X₀ / V<sub>d</sub></td><td>Depends on V<sub>d</sub> only</td></tr>
+        <tr><td>K</td><td>Cl / V<sub>d</sub></td><td>Always <em>derived</em> — never set directly</td></tr>
+        <tr><td>t½</td><td>0.693 / K</td><td>Depends on both V<sub>d</sub> and Cl</td></tr>
+        <tr><td>C(t)</td><td>C₀ · e<sup>−K·t</sup></td><td>Equivalently (X₀/V<sub>d</sub>) · e<sup>−(Cl/V<sub>d</sub>)·t</sup></td></tr>
+        <tr><td>AUC</td><td>X₀ / Cl &nbsp;=&nbsp; C₀ / K</td><td>X₀/Cl holds at any time and for any route. C₀/K is equivalent to it, but only for IV bolus.</td></tr>
+      </table>
+    </div>
+
+    <div class="panel theory-matrix">
+      <h2><span class="dot"></span>Relationship Matrix</h2>
+      <table class="eq-table">
+        <tr><th>Change</th><th>C₀</th><th>t½</th><th>AUC</th></tr>
+        <tr><td><span class="arrow">↑</span> V<sub>d</sub> (Cl constant)</td><td><span class="arrow">↓</span></td><td><span class="arrow">↑</span></td><td>no change</td></tr>
+        <tr><td><span class="arrow">↑</span> Cl (V<sub>d</sub> constant)</td><td>no change</td><td><span class="arrow">↓</span></td><td><span class="arrow">↓</span></td></tr>
+        <tr><td><span class="arrow">↑</span> Dose (V<sub>d</sub>, Cl constant)</td><td><span class="arrow">↑</span> proportional</td><td>no change</td><td><span class="arrow">↑</span> proportional</td></tr>
+      </table>
+      <p class="eq-note" style="margin-bottom:0;">V<sub>d</sub> and Cl are <strong>independent</strong> of each other — neither affects the other. They act together only through K to determine t½.</p>
+    </div>
+  </section>
+
+  <!-- ===================== SIMULATION TAB ===================== -->
+  <section class="tabpanel" id="tab-simulation">
+    <div class="twocol">
+      <div class="col">
+        <div class="panel sim">
+          <h2>Adjust the Patient</h2>
+          <div id="simControls"></div>
+          <button class="action" id="setRefBtn">Set as Reference</button>
+          <div id="refChipWrap"></div>
+        </div>
+
+        <div class="panel outputs">
+          <h2><span class="dot"></span>Half-Life Decay Table</h2>
+          <table id="halfLifeTable"></table>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel sim">
+          <div class="unit-toggle" id="simScaleToggle">
+            <button type="button" class="unit-btn active" data-scale="linear">Linear</button>
+            <button type="button" class="unit-btn" data-scale="log">Semilog</button>
+          </div>
+          <div id="simTimeRangeSlot"></div>
+          <div class="chart-wrap">
+            <svg id="pkSvg" viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="legend">
+              <span><i style="background:#E8785C"></i>Active patient</span>
+              <span id="refLegend" style="display:none;"><i style="border-bottom:2px dashed #6C8FE8;"></i>Reference</span>
+              <span><i style="background:#C8623A"></i>Upper target (20 mg/L)</span>
+              <span><i style="background:#3F9E6E"></i>Lower target (10 mg/L)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel outputs">
+          <h2><span class="dot"></span>Live Outputs</h2>
+          <div class="out-grid">
+            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="outC0">--</div><div class="unit">mg/L</div></div>
+            <div class="out-card"><div class="label">K</div><div class="value mono" id="outKe">--</div><div class="unit">h⁻¹</div></div>
+            <div class="out-card"><div class="label">t½</div><div class="value mono" id="outThalf">--</div><div class="unit">hours</div></div>
+            <div class="out-card"><div class="label">AUC</div><div class="value mono" id="outAuc">--</div><div class="unit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">Trough @12h</div><div class="value mono" id="outTrough">--</div><div class="unit">mg/L</div></div>
+          </div>
+        </div>
+
+        <div class="panel warning safe" id="warningPanel">
+          <h2><span class="dot"></span>Clinical Safety Check</h2>
+          <p id="flagText" style="margin:0; font-weight:700;">--</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CASE STUDIES TAB ===================== -->
+  <section class="tabpanel" id="tab-case">
+    <div class="panel case">
+      <h2><span class="dot"></span>Practice Scenarios</h2>
+      <p style="margin-top:0;">Each scenario isolates one concept from the Relationship Matrix. Work the equations by hand first, enter your answers to self-check, then use <strong>Load into Simulator</strong> to confirm against the live curve. Click <strong>New Values</strong> for a fresh set of numbers on the same concept — unlimited practice.</p>
+      <div class="unit-toggle" id="scenarioPicker" style="margin-bottom:0;"></div>
+    </div>
+
+    <div class="twocol">
+      <div class="col">
+        <div class="panel case" id="scenarioPanel"></div>
+      </div>
+      <div class="col">
+        <div class="panel sim">
+          <h3 style="margin-top:0;">Verification Simulator</h3>
+          <p class="sub" style="margin-top:-4px;">Loads whichever scenario values you choose — or adjust freely on your own.</p>
+          <div id="caseControls"></div>
+        </div>
+        <div class="panel sim">
+          <div class="unit-toggle" id="caseScaleToggle">
+            <button type="button" class="unit-btn active" data-scale="linear">Linear</button>
+            <button type="button" class="unit-btn" data-scale="log">Semilog</button>
+          </div>
+          <div id="caseTimeRangeSlot"></div>
+          <div class="chart-wrap">
+            <svg id="caseSvg" viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+        </div>
+        <div class="panel outputs">
+          <div class="out-grid centered">
+            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="caseC0">--</div><div class="unit">mg/L</div></div>
+            <div class="out-card"><div class="label">t½</div><div class="value mono" id="caseThalf">--</div><div class="unit">hours</div></div>
+            <div class="out-card"><div class="label">AUC</div><div class="value mono" id="caseAuc">--</div><div class="unit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">Trough @12h</div><div class="value mono" id="caseTrough">--</div><div class="unit">mg/L</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ASSESSMENT TAB ===================== -->
+  <section class="tabpanel" id="tab-assessment">
+    <div class="panel assess">
+      <h2><span class="dot"></span>Conceptual Questions (5)</h2>
+      <div id="conceptualQuestions"></div>
+    </div>
+
+    <div class="panel assess">
+      <h2><span class="dot"></span>Problem-Based Questions (8)</h2>
+      <p style="margin-top:0;">Each question has its own randomized numbers — click <strong>New Numbers</strong> on any question for a fresh attempt, or regenerate the whole set at once.</p>
+      <button class="action" onclick="regenAllProblems()">New Numbers (All)</button>
+      <div id="problemQuestions"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>PharmKinetix · Vancomycin IV Bolus Module · Pilot build</footer>
+
+<script>
+/* ===================== TAB SWITCHING ===================== */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ===================== REUSABLE SLIDER+NUMBER+ADJUSTABLE-BOUNDS CONTROL ===================== */
+// Renders a labeled slider paired with a numeric entry box and small editable
+// min/max/step fields. Returns getters/setters so callers can read the value,
+// react to changes, or reprogram the control (used when switching Vd/Cl units).
+function makeSliderControl(container, cfg){
+  // cfg: {label, min, max, step, value, decimals, suffix, onChange, boxed}
+  // boxed defaults to true (gives the control its own outlined card); pass
+  // boxed:false when nesting inside a control that already draws its own box
+  // (e.g. the Vd/Cl unit-toggle controls).
+  const wrap = document.createElement('div');
+  wrap.className = cfg.boxed===false ? 'ctrl' : 'ctrl param-box';
+  wrap.innerHTML = `
+    <div class="ctrl-label-row">
+      <span>${cfg.label}</span>
+      <span class="ctrl-value mono">${cfg.value.toFixed(cfg.decimals)} ${cfg.suffix}</span>
+    </div>
+    <input type="range" class="s-slider" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}">
+    <div class="ctrl-bottom-row">
+      <input type="number" class="ctrl-number s-number" step="${cfg.step}" value="${cfg.value}">
+      <span class="range-edit">Range:
+        <input type="number" class="s-min" value="${cfg.min}"> –
+        <input type="number" class="s-max" value="${cfg.max}">
+      </span>
+    </div>
+    ${cfg.helpText ? `<div class="sub">${cfg.helpText}</div>` : ''}
+  `;
+  container.appendChild(wrap);
+
+  const slider = wrap.querySelector('.s-slider');
+  const number = wrap.querySelector('.s-number');
+  const valueDisp = wrap.querySelector('.ctrl-value');
+  const minInput = wrap.querySelector('.s-min');
+  const maxInput = wrap.querySelector('.s-max');
+  let decimals = cfg.decimals, suffix = cfg.suffix;
+  let current = cfg.value;
+
+  function setDisplay(v){ valueDisp.textContent = `${v.toFixed(decimals)} ${suffix}`; }
+  function setValue(v, skipCallback){
+    current = v;
+    slider.value = v;
+    number.value = v;
+    setDisplay(v);
+    if(!skipCallback && cfg.onChange) cfg.onChange(v);
+  }
+  slider.addEventListener('input', ()=> setValue(parseFloat(slider.value)));
+  number.addEventListener('change', ()=>{
+    let v = parseFloat(number.value);
+    if(isNaN(v)) return;
+    const lo=parseFloat(slider.min), hi=parseFloat(slider.max);
+    v = Math.min(Math.max(v,lo),hi);
+    setValue(v);
+  });
+  minInput.addEventListener('change', ()=>{
+    const nv = parseFloat(minInput.value);
+    if(isNaN(nv)) return;
+    slider.min = nv;
+    if(current < nv) setValue(nv);
+  });
+  maxInput.addEventListener('change', ()=>{
+    const nv = parseFloat(maxInput.value);
+    if(isNaN(nv)) return;
+    slider.max = nv;
+    if(current > nv) setValue(nv);
+  });
+
+  return {
+    getValue: ()=>current,
+    setValue,
+    setLabelUnit: (newDecimals,newSuffix)=>{ decimals=newDecimals; suffix=newSuffix; setDisplay(current); },
+    setRange: (lo,hi,step,newVal)=>{
+      slider.min=lo; slider.max=hi; slider.step=step; number.step=step;
+      minInput.value=lo; maxInput.value=hi;
+      setValue(newVal);
+    },
+    el: wrap
+  };
+}
+
+// Builds a Vd control that can toggle between "L/kg" (population-average, needs
+// weight) and "L" (absolute, as sometimes reported directly in the literature).
+function makeVdControl(container, weightGetter, onChange){
+  const wrap = document.createElement('div');
+  wrap.className = 'param-box';
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Volume of Distribution (V<sub>d</sub>)</span></div>
+    <div class="unit-toggle">
+      <button type="button" class="unit-btn active" data-mode="perkg">L/kg</button>
+      <button type="button" class="unit-btn" data-mode="abs">L (absolute)</button>
+    </div>
+    <div class="vd-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector('.vd-slot');
+  let mode = 'perkg';
+  let absoluteL = 0.70*weightGetter();
+
+  const ctrl = makeSliderControl(slot, {
+    label:'', min:0.30, max:1.20, step:0.05, value:0.70, decimals:2, suffix:'L/kg', boxed:false,
+    helpText:'↑ in sepsis/burns · ↓ in dehydration',
+    onChange:(v)=>{ absoluteL = (mode==='perkg') ? v*weightGetter() : v; onChange(); }
+  });
+
+  wrap.querySelectorAll('.unit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const newMode = btn.dataset.mode;
+      if(newMode===mode) return;
+      wrap.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = newMode;
+      if(mode==='perkg'){
+        const v = absoluteL/weightGetter();
+        ctrl.setLabelUnit(2,'L/kg');
+        ctrl.setRange(0.30,1.20,0.05, parseFloat(v.toFixed(2)));
+      } else {
+        ctrl.setLabelUnit(0,'L');
+        ctrl.setRange(10,150,1, Math.round(absoluteL));
+      }
+    });
+  });
+
+  return {
+    getAbsoluteL: ()=>absoluteL,
+    refreshForWeight: ()=>{ if(mode==='perkg'){ absoluteL = ctrl.getValue()*weightGetter(); onChange(); } },
+    // Programmatic setter (used by case-study "Load into Simulator" buttons):
+    // switches to L/kg mode if needed, then sets the value.
+    setPerKgValue: (v)=>{
+      if(mode!=='perkg'){ wrap.querySelector('.unit-btn[data-mode="perkg"]').click(); }
+      ctrl.setValue(parseFloat(v.toFixed(2)));
+    }
+  };
+}
+
+// Builds a Cl control that can toggle between "mL/min" (absolute) and
+// "mL/min/kg" (per-kg, needs weight). initialMlMin lets callers (e.g. the
+// post-AKI case) start the slider somewhere other than the population default.
+function makeClControl(container, weightGetter, onChange, initialMlMin){
+  const startVal = initialMlMin || 56;
+  const wrap = document.createElement('div');
+  wrap.className = 'param-box';
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Clearance (Cl)</span></div>
+    <div class="unit-toggle">
+      <button type="button" class="unit-btn active" data-mode="abs">mL/min</button>
+      <button type="button" class="unit-btn" data-mode="perkg">mL/min/kg</button>
+    </div>
+    <div class="cl-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector('.cl-slot');
+  let mode = 'abs';
+  let absoluteMlMin = startVal;
+
+  const ctrl = makeSliderControl(slot, {
+    label:'', min:5, max:200, step:5, value:startVal, decimals:0, suffix:'mL/min', boxed:false,
+    helpText:'Tracks renal function (≈ CrCl)',
+    onChange:(v)=>{ absoluteMlMin = (mode==='abs') ? v : v*weightGetter(); onChange(); }
+  });
+
+  wrap.querySelectorAll('.unit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const newMode = btn.dataset.mode;
+      if(newMode===mode) return;
+      wrap.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = newMode;
+      if(mode==='abs'){
+        ctrl.setLabelUnit(0,'mL/min');
+        ctrl.setRange(5,200,5, Math.round(absoluteMlMin));
+      } else {
+        const v = absoluteMlMin/weightGetter();
+        ctrl.setLabelUnit(2,'mL/min/kg');
+        ctrl.setRange(0.05,3,0.05, parseFloat(v.toFixed(2)));
+      }
+    });
+  });
+
+  return {
+    getAbsoluteMlMin: ()=>absoluteMlMin,
+    refreshForWeight: ()=>{ if(mode==='perkg'){ absoluteMlMin = ctrl.getValue()*weightGetter(); onChange(); } },
+    // Programmatic setter (used by case-study "Load into Simulator" buttons):
+    // switches to mL/min mode if needed, then sets the value.
+    setAbsValue: (v)=>{
+      if(mode!=='abs'){ wrap.querySelector('.unit-btn[data-mode="abs"]').click(); }
+      ctrl.setValue(Math.round(v));
+    }
+  };
+}
+
+/* ===================== SHARED PK MATH + SVG CHART ===================== */
+const SVG_W=700, SVG_H=360, PAD={top:16,right:24,bottom:50,left:64};
+const PLOT_W=SVG_W-PAD.left-PAD.right, PLOT_H=SVG_H-PAD.top-PAD.bottom;
+
+function computePK(dose, VdL, ClMlMin){
+  const CLLh = (ClMlMin*60)/1000;
+  const C0 = dose/VdL;
+  const ke = CLLh/VdL;
+  const thalf = 0.693/ke;
+  const auc = dose/CLLh;
+  const trough12 = C0*Math.exp(-ke*12);
+  return {dose, VdL, CLLh, C0, ke, thalf, auc, trough12};
+}
+// tMax is the x-axis span in hours — adjustable per chart rather than fixed at 24h.
+function curvePoints(r, tMax){
+  const pts=[];
+  const step = tMax/96;
+  for(let t=0;t<=tMax;t+=step){ pts.push([t, r.C0*Math.exp(-r.ke*t)]); }
+  return pts;
+}
+function xScale(t, tMax){ return PAD.left + (t/tMax)*PLOT_W; }
+
+// Unified y-scale: mode 'linear' uses bounds.hi (0 implied floor);
+// mode 'log' uses bounds.lo/bounds.hi as the decade range, values below
+// bounds.lo are clipped up to it (log(0) is undefined, so we never plot 0).
+function yScale(v, bounds, mode){
+  if(mode==='log'){
+    const vv = Math.max(v, bounds.lo);
+    return PAD.top + PLOT_H - (Math.log10(vv/bounds.lo)/Math.log10(bounds.hi/bounds.lo))*PLOT_H;
+  }
+  return PAD.top + PLOT_H - (v/bounds.hi)*PLOT_H;
+}
+function pathFromPoints(pts, bounds, mode, tMax){
+  return pts.map((p,i)=>`${i===0?'M':'L'}${xScale(p[0],tMax).toFixed(1)},${yScale(p[1],bounds,mode).toFixed(1)}`).join(' ');
+}
+// Computes y-axis bounds for either scale. For log mode, rounds outward to
+// whole decades and caps the span at 4 decades so a fast-clearing curve
+// doesn't stretch the axis into an unreadable range.
+function computeBounds(dataMax, dataMinPositive, mode){
+  if(mode==='log'){
+    let lo = Math.pow(10, Math.floor(Math.log10(Math.max(dataMinPositive, 1e-6))));
+    let hi = Math.pow(10, Math.ceil(Math.log10(dataMax*1.15)));
+    if(hi<=lo) hi = lo*10;
+    if(Math.log10(hi/lo) > 4) lo = hi/Math.pow(10,4);
+    return {lo, hi};
+  }
+  const hi = Math.ceil((dataMax*1.15)/5)*5 || 10;
+  return {hi};
+}
+
+function renderChart(svgEl, activeR, refR, mode, tMax){
+  mode = mode || 'linear';
+  tMax = tMax || 24;
+  const activePts = curvePoints(activeR, tMax);
+  const allVals = activePts.map(p=>p[1]).concat([activeR.C0]);
+  if(refR){ const refPts=curvePoints(refR, tMax); allVals.push(...refPts.map(p=>p[1]), refR.C0); }
+  const dataMax = Math.max(...allVals);
+  const dataMinPositive = Math.min(...allVals.filter(v=>v>0));
+  const bounds = computeBounds(dataMax, dataMinPositive, mode);
+
+  // Stash the state the hover handler needs so it can recompute C(t) at any
+  // cursor position without re-deriving bounds/scale each mousemove.
+  svgEl.__chartState = {activeR, refR, mode, tMax, bounds};
+
+  svgEl.setAttribute('viewBox', `0 0 ${SVG_W} ${SVG_H}`);
+  let gridLines='', yLabels='';
+  if(mode==='log'){
+    const startPow = Math.round(Math.log10(bounds.lo));
+    const endPow = Math.round(Math.log10(bounds.hi));
+    for(let p=startPow; p<=endPow; p++){
+      const v = Math.pow(10,p);
+      const y = yScale(v, bounds, mode);
+      gridLines += `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${SVG_W-PAD.right}" y2="${y.toFixed(1)}" stroke="#EEF1F6" stroke-width="1"/>`;
+      yLabels += `<text x="${PAD.left-10}" y="${(y+5).toFixed(1)}" text-anchor="end" font-size="13" fill="#5B6270" font-family="Atkinson Hyperlegible Mono, monospace">${v>=1?v.toFixed(0):v.toFixed(2)}</text>`;
+    }
+  } else {
+    for(let i=0;i<=5;i++){
+      const v=(bounds.hi/5)*i, y=yScale(v,bounds,mode);
+      gridLines += `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${SVG_W-PAD.right}" y2="${y.toFixed(1)}" stroke="#EEF1F6" stroke-width="1"/>`;
+      yLabels += `<text x="${PAD.left-10}" y="${(y+5).toFixed(1)}" text-anchor="end" font-size="13" fill="#5B6270" font-family="Atkinson Hyperlegible Mono, monospace">${v.toFixed(0)}</text>`;
+    }
+  }
+  // 6 evenly spaced x-axis ticks across whatever range is selected.
+  let xLabels='';
+  for(let i=0;i<=6;i++){
+    const t = (tMax/6)*i;
+    const x=xScale(t, tMax);
+    xLabels += `<text x="${x.toFixed(1)}" y="${SVG_H-PAD.bottom+22}" text-anchor="middle" font-size="13" fill="#5B6270" font-family="Atkinson Hyperlegible Mono, monospace">${t.toFixed(t%1===0?0:1)}</text>`;
+  }
+  const curvePath = pathFromPoints(activePts, bounds, mode, tMax);
+  // Area fill only makes sense against a true zero baseline, which log scale
+  // doesn't have — so we only fill in linear mode.
+  const areaPath = curvePath + ` L${xScale(tMax,tMax).toFixed(1)},${yScale(0,bounds,mode).toFixed(1)} L${xScale(0,tMax).toFixed(1)},${yScale(0,bounds,mode).toFixed(1)} Z`;
+  const upperInRange = mode==='log' ? (20>=bounds.lo && 20<=bounds.hi) : (20<=bounds.hi);
+  const lowerInRange = mode==='log' ? (10>=bounds.lo && 10<=bounds.hi) : (10<=bounds.hi);
+  const upperY = yScale(20,bounds,mode), lowerY = yScale(10,bounds,mode);
+
+  let refPath = '';
+  if(refR){
+    const refPts = curvePoints(refR, tMax);
+    refPath = `<path d="${pathFromPoints(refPts,bounds,mode,tMax)}" fill="none" stroke="#6C8FE8" stroke-width="2.5" stroke-dasharray="7,5"/>`;
+  }
+
+  svgEl.innerHTML = `
+    ${gridLines}
+    <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${SVG_H-PAD.bottom}" stroke="#DCE1EA" stroke-width="1.5"/>
+    <line x1="${PAD.left}" y1="${SVG_H-PAD.bottom}" x2="${SVG_W-PAD.right}" y2="${SVG_H-PAD.bottom}" stroke="#DCE1EA" stroke-width="1.5"/>
+    ${yLabels}${xLabels}
+    <text x="${PAD.left+PLOT_W/2}" y="${SVG_H-6}" text-anchor="middle" font-size="15" font-weight="700" fill="#5B6270" font-family="Atkinson Hyperlegible, sans-serif">Time (hours)</text>
+    <text x="18" y="${PAD.top+PLOT_H/2}" text-anchor="middle" font-size="15" font-weight="700" fill="#5B6270" font-family="Atkinson Hyperlegible, sans-serif" transform="rotate(-90 18 ${PAD.top+PLOT_H/2})">Concentration (mg/L)${mode==='log'?' — log scale':''}</text>
+    ${upperInRange?`<line x1="${PAD.left}" y1="${upperY.toFixed(1)}" x2="${SVG_W-PAD.right}" y2="${upperY.toFixed(1)}" stroke="#C8623A" stroke-width="1.5" stroke-dasharray="6,4"/>`:''}
+    ${lowerInRange?`<line x1="${PAD.left}" y1="${lowerY.toFixed(1)}" x2="${SVG_W-PAD.right}" y2="${lowerY.toFixed(1)}" stroke="#3F9E6E" stroke-width="1.5" stroke-dasharray="6,4"/>`:''}
+    ${mode==='linear'?`<path d="${areaPath}" fill="rgba(232,120,92,0.08)" stroke="none"/>`:''}
+    <path d="${curvePath}" fill="none" stroke="#E8785C" stroke-width="3"/>
+    ${refPath}
+    <g id="hoverLayer" style="display:none; pointer-events:none;">
+      <line id="hoverCrosshair" x1="0" y1="${PAD.top}" x2="0" y2="${SVG_H-PAD.bottom}" stroke="#9AA3B2" stroke-width="1" stroke-dasharray="3,3"/>
+      <circle id="hoverDotRef" r="6" fill="#6C8FE8" stroke="#fff" stroke-width="2" style="display:none;"/>
+      <circle id="hoverDotActive" r="6" fill="#E8785C" stroke="#fff" stroke-width="2"/>
+      <rect id="hoverTooltipBg" fill="#1F2430" opacity="0.92" rx="6"/>
+      <text id="hoverTooltipText" font-size="13" fill="#fff" font-family="Atkinson Hyperlegible Mono, monospace"></text>
+    </g>
+  `;
+}
+
+// Tracks the mouse over a chart's SVG and shows a crosshair + tooltip with the
+// exact (t, C) reading, reading whatever state was last stashed by renderChart
+// so it stays correct across slider changes without re-attaching listeners.
+function attachHover(svgEl){
+  svgEl.addEventListener('mousemove', (e)=>{
+    const state = svgEl.__chartState;
+    const hoverLayer = svgEl.querySelector('#hoverLayer');
+    if(!state || !hoverLayer) return;
+    const pt = svgEl.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const ctm = svgEl.getScreenCTM();
+    if(!ctm) return;
+    const svgP = pt.matrixTransform(ctm.inverse());
+
+    if(svgP.x < PAD.left || svgP.x > SVG_W-PAD.right || svgP.y < PAD.top || svgP.y > SVG_H-PAD.bottom){
+      hoverLayer.style.display = 'none';
+      return;
+    }
+
+    let t = ((svgP.x - PAD.left) / PLOT_W) * state.tMax;
+    t = Math.max(0, Math.min(state.tMax, t));
+    const activeC = state.activeR.C0 * Math.exp(-state.activeR.ke * t);
+    const xPix = xScale(t, state.tMax);
+    const yPixActive = yScale(activeC, state.bounds, state.mode);
+
+    hoverLayer.style.display = 'block';
+    const crosshair = svgEl.querySelector('#hoverCrosshair');
+    const dotActive = svgEl.querySelector('#hoverDotActive');
+    const dotRef = svgEl.querySelector('#hoverDotRef');
+    const tooltipBg = svgEl.querySelector('#hoverTooltipBg');
+    const tooltipText = svgEl.querySelector('#hoverTooltipText');
+
+    crosshair.setAttribute('x1', xPix.toFixed(1));
+    crosshair.setAttribute('x2', xPix.toFixed(1));
+    dotActive.setAttribute('cx', xPix.toFixed(1));
+    dotActive.setAttribute('cy', yPixActive.toFixed(1));
+
+    const lines = [`t = ${t.toFixed(1)} h`, `Active: ${activeC.toFixed(2)} mg/L`];
+    if(state.refR){
+      const refC = state.refR.C0 * Math.exp(-state.refR.ke * t);
+      const yPixRef = yScale(refC, state.bounds, state.mode);
+      dotRef.style.display = 'block';
+      dotRef.setAttribute('cx', xPix.toFixed(1));
+      dotRef.setAttribute('cy', yPixRef.toFixed(1));
+      lines.push(`Reference: ${refC.toFixed(2)} mg/L`);
+    } else {
+      dotRef.style.display = 'none';
+    }
+
+    const tw = 172, th = 16 + lines.length*19;
+    let tx = xPix + 12;
+    if(tx + tw > SVG_W - PAD.right) tx = xPix - tw - 12;
+    const ty = PAD.top + 6;
+    tooltipBg.setAttribute('x', tx.toFixed(1));
+    tooltipBg.setAttribute('y', ty.toFixed(1));
+    tooltipBg.setAttribute('width', tw);
+    tooltipBg.setAttribute('height', th);
+    tooltipText.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+19+i*19).toFixed(1)}">${l}</tspan>`).join('');
+  });
+  svgEl.addEventListener('mouseleave', ()=>{
+    const hoverLayer = svgEl.querySelector('#hoverLayer');
+    if(hoverLayer) hoverLayer.style.display = 'none';
+  });
+}
+attachHover(document.getElementById('pkSvg'));
+attachHover(document.getElementById('caseSvg'));
+
+/* ===================== SIMULATION TAB ===================== */
+const simControlsDiv = document.getElementById('simControls');
+const simDoseCtrl = makeSliderControl(simControlsDiv, {label:'Dose', min:500,max:3000,step:250,value:1500,decimals:0,suffix:'mg', onChange:renderSimulation});
+const simWtCtrl = makeSliderControl(simControlsDiv, {label:'Weight', min:40,max:140,step:5,value:70,decimals:0,suffix:'kg', onChange:()=>{ simVdCtrl.refreshForWeight(); simClCtrl.refreshForWeight(); renderSimulation(); }});
+const simVdCtrl = makeVdControl(simControlsDiv, ()=>simWtCtrl.getValue(), renderSimulation);
+const simClCtrl = makeClControl(simControlsDiv, ()=>simWtCtrl.getValue(), renderSimulation);
+
+const outC0=document.getElementById('outC0'), outKe=document.getElementById('outKe'), outThalf=document.getElementById('outThalf'), outAuc=document.getElementById('outAuc'), outTrough=document.getElementById('outTrough');
+const warningPanel=document.getElementById('warningPanel'), flagText=document.getElementById('flagText');
+const setRefBtn=document.getElementById('setRefBtn'), refChipWrap=document.getElementById('refChipWrap'), refLegend=document.getElementById('refLegend');
+let referenceR = null;
+let simScaleMode = 'linear';
+document.querySelectorAll('#simScaleToggle .unit-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#simScaleToggle .unit-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    simScaleMode = btn.dataset.scale;
+    renderSimulation();
+  });
+});
+const simTimeCtrl = makeSliderControl(document.getElementById('simTimeRangeSlot'), {
+  label:'X-axis Range', min:6, max:96, step:6, value:24, decimals:0, suffix:'h', onChange:renderSimulation
+});
+
+function currentSimParams(){
+  return computePK(simDoseCtrl.getValue(), simVdCtrl.getAbsoluteL(), simClCtrl.getAbsoluteMlMin());
+}
+
+function updateHalfLifeTable(r){
+  let html = '<tr><th>n</th><th>Time (h)</th><th>C(t) mg/L</th><th>% remaining</th></tr>';
+  for(let n=1;n<=6;n++){
+    const t = n*r.thalf;
+    const c = r.C0/Math.pow(2,n);
+    const pct = 100/Math.pow(2,n);
+    html += `<tr class="${n===5?'highlight':''}"><td>${n}</td><td>${t.toFixed(1)}</td><td>${c.toFixed(2)}</td><td>${pct.toFixed(1)}</td></tr>`;
+  }
+  document.getElementById('halfLifeTable').innerHTML = html;
+}
+
+function renderSimulation(){
+  const r = currentSimParams();
+  outC0.textContent = r.C0.toFixed(1);
+  outKe.textContent = r.ke.toFixed(3);
+  outThalf.textContent = r.thalf.toFixed(1);
+  outAuc.textContent = r.auc.toFixed(0);
+  outTrough.textContent = r.trough12.toFixed(1);
+
+  if(r.trough12>20){
+    warningPanel.className='panel warning';
+    flagText.textContent = `⚠ Trough at 12h (${r.trough12.toFixed(1)} mg/L) exceeds 20 mg/L — elevated nephrotoxicity risk.`;
+  } else if(r.trough12<10){
+    warningPanel.className='panel warning';
+    flagText.textContent = `⚠ Trough at 12h (${r.trough12.toFixed(1)} mg/L) is below 10 mg/L — subtherapeutic.`;
+  } else {
+    warningPanel.className='panel warning safe';
+    flagText.textContent = `✓ Trough at 12h (${r.trough12.toFixed(1)} mg/L) is within the 10–20 mg/L range.`;
+  }
+  renderChart(document.getElementById('pkSvg'), r, referenceR, simScaleMode, simTimeCtrl.getValue());
+  updateHalfLifeTable(r);
+}
+
+setRefBtn.addEventListener('click', ()=>{
+  referenceR = currentSimParams();
+  refLegend.style.display='inline-flex';
+  refChipWrap.innerHTML = `<div class="ref-chip">Reference: V<sub>d</sub> ${referenceR.VdL.toFixed(1)} L, Cl ${referenceR.CLLh.toFixed(2)} L/h <button onclick="clearReference()">✕</button></div>`;
+  renderSimulation();
+});
+function clearReference(){
+  referenceR = null;
+  refLegend.style.display='none';
+  refChipWrap.innerHTML='';
+  renderSimulation();
+}
+renderSimulation();
+
+/* ===================== CASE STUDIES TAB ===================== */
+const caseControlsDiv = document.getElementById('caseControls');
+const caseWtCtrl = makeSliderControl(caseControlsDiv, {label:'Patient Weight', min:40,max:140,step:5,value:70,decimals:0,suffix:'kg', onChange:()=>{ caseVdCtrl.refreshForWeight(); caseClCtrl.refreshForWeight(); renderCase(); }});
+const caseDoseCtrl = makeSliderControl(caseControlsDiv, {label:'Dose', min:500,max:3000,step:250,value:1500,decimals:0,suffix:'mg', onChange:renderCase});
+const caseVdCtrl = makeVdControl(caseControlsDiv, ()=>caseWtCtrl.getValue(), renderCase);
+// Default the case Cl to 25 mL/min (post-AKI) to match the scenario narrative.
+const caseClCtrl = makeClControl(caseControlsDiv, ()=>caseWtCtrl.getValue(), renderCase, 25);
+
+let caseScaleMode = 'linear';
+document.querySelectorAll('#caseScaleToggle .unit-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#caseScaleToggle .unit-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    caseScaleMode = btn.dataset.scale;
+    renderCase();
+  });
+});
+const caseTimeCtrl = makeSliderControl(document.getElementById('caseTimeRangeSlot'), {
+  label:'X-axis Range', min:6, max:96, step:6, value:24, decimals:0, suffix:'h', onChange:renderCase
+});
+
+function renderCase(){
+  const r = computePK(caseDoseCtrl.getValue(), caseVdCtrl.getAbsoluteL(), caseClCtrl.getAbsoluteMlMin());
+  document.getElementById('caseC0').textContent = r.C0.toFixed(1);
+  document.getElementById('caseThalf').textContent = r.thalf.toFixed(1);
+  document.getElementById('caseAuc').textContent = r.auc.toFixed(0);
+  document.getElementById('caseTrough').textContent = r.trough12.toFixed(1);
+  renderChart(document.getElementById('caseSvg'), r, null, caseScaleMode, caseTimeCtrl.getValue());
+}
+renderCase();
+
+/* ===================== CASE STUDIES: SCENARIO ENGINE ===================== */
+// Draws a random value within [min,max], snapped to step, for realistic
+// clinical numbers that also stay inside each control's slider bounds.
+function randStep(min, max, step){
+  const n = Math.round((max-min)/step);
+  return +(min + Math.floor(Math.random()*(n+1))*step).toFixed(4);
+}
+
+// Each scenario isolates one row of the Relationship Matrix (or a related
+// concept from the slide decks). generate() draws fresh numbers; narrative()
+// and each question's prompt()/answer() read from that same draw, so
+// "New Values" regenerates a fully self-consistent, freshly-numbered problem.
+const SCENARIOS = [
+  {
+    id:'vd', label:'1 · Vd Only',
+    title:'Scenario 1 — Volume of Distribution Change',
+    generate(){
+      return {
+        weight: randStep(50,100,5),
+        dose: randStep(750,2000,250),
+        clMlMin: randStep(40,90,5),
+        vdBeforeKg: randStep(0.50,0.70,0.05),
+        vdAfterKg: randStep(0.90,1.20,0.05)
+      };
+    },
+    narrative(d){
+      return `A ${d.weight} kg patient receives vancomycin ${d.dose} mg IV bolus. Population-average clearance is ${d.clMlMin} mL/min and stays <strong>constant</strong>. Due to sepsis-associated fluid shifts, V<sub>d</sub> increases from ${d.vdBeforeKg.toFixed(2)} L/kg to ${d.vdAfterKg.toFixed(2)} L/kg.`;
+    },
+    questions:[
+      {type:'numeric', prompt:()=>'Calculate C₀ BEFORE the Vd change (mg/L).', answer:d=>d.dose/(d.vdBeforeKg*d.weight), tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate C₀ AFTER the Vd change (mg/L).', answer:d=>d.dose/(d.vdAfterKg*d.weight), tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate t½ AFTER the Vd change (hours).', answer:d=>{ const VdL=d.vdAfterKg*d.weight, CLLh=d.clMlMin*60/1000; return 0.693/(CLLh/VdL); }, tol:0.05},
+      {type:'mcq', prompt:()=>'Does the AUC change as a result of this Vd increase?', opts:[['a','Yes, it increases'],['b','Yes, it decreases'],['c','No — AUC is unaffected by Vd']], correct:'c'}
+    ],
+    loadTargets:[
+      {label:'Load BEFORE', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdBeforeKg, clMlMin:d.clMlMin})},
+      {label:'Load AFTER', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdAfterKg, clMlMin:d.clMlMin})}
+    ]
+  },
+  {
+    id:'cl', label:'2 · Cl Only',
+    title:'Scenario 2 — Clearance Change (Renal Impairment)',
+    generate(){
+      const clBefore = randStep(70,120,5);
+      return {
+        weight: randStep(50,100,5),
+        dose: randStep(750,2000,250),
+        vdKg: randStep(0.60,0.80,0.05),
+        clBefore,
+        clAfter: randStep(Math.round(clBefore*0.2), Math.round(clBefore*0.5), 5)
+      };
+    },
+    narrative(d){
+      return `A ${d.weight} kg patient on vancomycin ${d.dose} mg IV bolus q12h has baseline clearance ${d.clBefore} mL/min (V<sub>d</sub> = ${d.vdKg.toFixed(2)} L/kg, <strong>constant</strong>). He develops acute kidney injury; clearance drops to ${d.clAfter} mL/min. The team keeps the dose and interval unchanged.`;
+    },
+    questions:[
+      {type:'numeric', prompt:()=>'Calculate the AUC AFTER the Cl drop (mg·h/L).', answer:d=>d.dose/(d.clAfter*60/1000), tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate t½ AFTER the Cl drop (hours).', answer:d=>{ const VdL=d.vdKg*d.weight, CLLh=d.clAfter*60/1000; return 0.693/(CLLh/VdL); }, tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate the concentration at t = 12 h AFTER the Cl drop (mg/L).', answer:d=>{ const VdL=d.vdKg*d.weight, CLLh=d.clAfter*60/1000, C0=d.dose/VdL, K=CLLh/VdL; return C0*Math.exp(-K*12); }, tol:0.08},
+      {type:'mcq', prompt:()=>'If the dose/interval are NOT adjusted, what happens to exposure?', opts:[['a','AUC decreases because K increases'],['b','AUC increases substantially because Cl has dropped'],['c','No change — C₀ is unaffected by Cl']], correct:'b'},
+      {type:'mcq', prompt:()=>'Would lengthening the dosing interval (e.g., q12h → q24h) help reduce accumulation?', opts:[['a','Yes — more time to clear before the next dose'],['b','No — only the dose amount matters, not timing']], correct:'a'}
+    ],
+    loadTargets:[
+      {label:'Load BEFORE', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdKg, clMlMin:d.clBefore})},
+      {label:'Load AFTER', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdKg, clMlMin:d.clAfter})}
+    ]
+  },
+  {
+    id:'dose', label:'3 · Dose Only',
+    title:'Scenario 3 — Dose Change',
+    generate(){
+      const doseBefore = randStep(500,1500,250);
+      return {
+        weight: randStep(50,100,5),
+        vdKg: randStep(0.50,0.90,0.05),
+        clMlMin: randStep(40,100,5),
+        doseBefore,
+        doseAfter: doseBefore + randStep(500,1500,250)
+      };
+    },
+    narrative(d){
+      return `A ${d.weight} kg patient (V<sub>d</sub> = ${d.vdKg.toFixed(2)} L/kg, Cl = ${d.clMlMin} mL/min — both <strong>constant</strong>) has their vancomycin dose increased from ${d.doseBefore} mg to ${d.doseAfter} mg IV bolus, targeting a higher trough.`;
+    },
+    questions:[
+      {type:'numeric', prompt:()=>'Calculate C₀ at the ORIGINAL dose (mg/L).', answer:d=>d.doseBefore/(d.vdKg*d.weight), tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate C₀ at the NEW dose (mg/L).', answer:d=>d.doseAfter/(d.vdKg*d.weight), tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate the AUC at the NEW dose (mg·h/L).', answer:d=>d.doseAfter/(d.clMlMin*60/1000), tol:0.05},
+      {type:'mcq', prompt:()=>'C₀ and AUC both scale with dose in what way (Vd, Cl constant)?', opts:[['a','Proportionally — same % increase as the dose'],['b','Not at all — they depend only on Vd and Cl'],['c','Inversely — they decrease as dose increases']], correct:'a'}
+    ],
+    loadTargets:[
+      {label:'Load ORIGINAL dose', get:d=>({weight:d.weight, dose:d.doseBefore, vdKg:d.vdKg, clMlMin:d.clMlMin})},
+      {label:'Load NEW dose', get:d=>({weight:d.weight, dose:d.doseAfter, vdKg:d.vdKg, clMlMin:d.clMlMin})}
+    ]
+  },
+  {
+    id:'combined', label:'4 · Combined',
+    title:'Scenario 4 — Combined Vd + Cl Change',
+    generate(){
+      return {
+        weight: randStep(50,100,5),
+        dose: randStep(1000,2000,250),
+        vdBeforeKg: randStep(0.55,0.70,0.05),
+        vdAfterKg: randStep(0.90,1.15,0.05),
+        clBefore: randStep(70,110,5),
+        clAfter: randStep(20,45,5)
+      };
+    },
+    narrative(d){
+      return `A ${d.weight} kg septic patient on vancomycin ${d.dose} mg IV bolus develops both third-spacing (V<sub>d</sub>: ${d.vdBeforeKg.toFixed(2)} → ${d.vdAfterKg.toFixed(2)} L/kg) AND acute kidney injury (Cl: ${d.clBefore} → ${d.clAfter} mL/min) at the same time.`;
+    },
+    questions:[
+      {type:'numeric', prompt:()=>'Calculate the NEW C₀ (mg/L) — driven by which parameter?', answer:d=>d.dose/(d.vdAfterKg*d.weight), tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate the NEW AUC (mg·h/L) — driven by which parameter?', answer:d=>d.dose/(d.clAfter*60/1000), tol:0.05},
+      {type:'numeric', prompt:()=>'Calculate the NEW t½ (hours) — this one depends on BOTH.', answer:d=>{ const VdL=d.vdAfterKg*d.weight, CLLh=d.clAfter*60/1000; return 0.693/(CLLh/VdL); }, tol:0.05},
+      {type:'mcq', prompt:()=>'Which single change is responsible for the drop in AUC?', opts:[['a','The Vd increase'],['b','The Cl decrease'],['c','Both contribute equally']], correct:'b'}
+    ],
+    loadTargets:[
+      {label:'Load BEFORE', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdBeforeKg, clMlMin:d.clBefore})},
+      {label:'Load AFTER', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdAfterKg, clMlMin:d.clAfter})}
+    ]
+  },
+  {
+    id:'multidose', label:'5 · Multi-Dose',
+    title:'Scenario 5 — Accumulation with Repeated Dosing',
+    generate(){
+      return {
+        weight: randStep(50,100,5),
+        dose: randStep(750,2000,250),
+        vdKg: randStep(0.55,0.85,0.05),
+        clMlMin: randStep(35,70,5),
+        interval: [12,24][Math.floor(Math.random()*2)]
+      };
+    },
+    narrative(d){
+      return `A ${d.weight} kg patient receives vancomycin ${d.dose} mg IV bolus every ${d.interval} h (V<sub>d</sub> = ${d.vdKg.toFixed(2)} L/kg, Cl = ${d.clMlMin} mL/min). A second identical dose is given exactly ${d.interval} h after the first, before the first dose has fully cleared.`;
+    },
+    questions:[
+      {type:'numeric', prompt:d=>`Calculate the concentration immediately BEFORE the second dose, at t = ${d.interval} h (mg/L).`, answer:d=>{ const VdL=d.vdKg*d.weight, CLLh=d.clMlMin*60/1000, C0=d.dose/VdL, K=CLLh/VdL; return C0*Math.exp(-K*d.interval); }, tol:0.08},
+      {type:'numeric', prompt:()=>'Calculate the concentration immediately AFTER the second dose (mg/L). Hint: it adds to what remains from dose 1.', answer:d=>{ const VdL=d.vdKg*d.weight, CLLh=d.clMlMin*60/1000, C0=d.dose/VdL, K=CLLh/VdL; return C0*Math.exp(-K*d.interval) + C0; }, tol:0.08},
+      {type:'mcq', prompt:()=>'If the interval were shortened (dose unchanged), accumulation would:', opts:[['a','Increase — less time to clear between doses'],['b','Decrease — shorter intervals mean less drug overall'],['c','Stay the same — interval has no effect on accumulation']], correct:'a'}
+    ],
+    loadTargets:[
+      {label:'Load into Simulator', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdKg, clMlMin:d.clMlMin})}
+    ]
+  },
+  {
+    id:'duration', label:'6 · Duration',
+    title:'Scenario 6 — Duration of Therapeutic Action',
+    generate(){
+      return {
+        weight: randStep(50,100,5),
+        dose: randStep(1000,2500,250),
+        vdKg: randStep(0.55,0.85,0.05),
+        clMlMin: randStep(35,80,5),
+        mec: randStep(8,15,1)
+      };
+    },
+    narrative(d){
+      return `A ${d.weight} kg patient receives vancomycin ${d.dose} mg IV bolus (V<sub>d</sub> = ${d.vdKg.toFixed(2)} L/kg, Cl = ${d.clMlMin} mL/min). The minimum effective concentration (MEC) for this organism is ${d.mec} mg/L.`;
+    },
+    questions:[
+      {type:'numeric', prompt:()=>'Calculate C₀ (mg/L).', answer:d=>d.dose/(d.vdKg*d.weight), tol:0.05},
+      {type:'numeric', prompt:d=>`Calculate how long the concentration stays above MEC (${d.mec} mg/L), in hours. Hint: t = ln(C₀/C) / K.`, answer:d=>{ const VdL=d.vdKg*d.weight, CLLh=d.clMlMin*60/1000, C0=d.dose/VdL, K=CLLh/VdL; return Math.log(C0/d.mec)/K; }, tol:0.08}
+    ],
+    loadTargets:[
+      {label:'Load into Simulator', get:d=>({weight:d.weight, dose:d.dose, vdKg:d.vdKg, clMlMin:d.clMlMin})}
+    ]
+  }
+];
+
+let currentScenarioIndex = 0;
+let currentDraw = SCENARIOS[0].generate();
+
+const scenarioPicker = document.getElementById('scenarioPicker');
+SCENARIOS.forEach((s,i)=>{
+  const btn = document.createElement('button');
+  btn.type='button'; btn.className='unit-btn'+(i===0?' active':'');
+  btn.textContent = s.label;
+  btn.addEventListener('click', ()=>{
+    currentScenarioIndex = i;
+    currentDraw = SCENARIOS[i].generate();
+    document.querySelectorAll('#scenarioPicker .unit-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderScenario();
+  });
+  scenarioPicker.appendChild(btn);
+});
+
+function checkScenarioAnswer(qIndex){
+  const scenario = SCENARIOS[currentScenarioIndex];
+  const q = scenario.questions[qIndex];
+  const fb = document.getElementById('scenQfb'+qIndex);
+  if(q.type==='numeric'){
+    const val = parseFloat(document.getElementById('scenQinput'+qIndex).value);
+    if(isNaN(val)){ fb.className='feedback incorrect'; fb.textContent='Enter a numeric value.'; return; }
+    const correct = q.answer(currentDraw);
+    const within = Math.abs(val-correct)/Math.abs(correct) <= q.tol;
+    if(within){ fb.className='feedback correct'; fb.textContent=`✓ Correct (≈ ${correct.toFixed(2)}).`; }
+    else { fb.className='feedback incorrect'; fb.textContent=`✗ Not quite — correct answer is ≈ ${correct.toFixed(2)}.`; }
+  } else {
+    const sel = document.querySelector(`input[name="scenQ${qIndex}"]:checked`);
+    if(!sel){ fb.className='feedback incorrect'; fb.textContent='Select an answer first.'; return; }
+    if(sel.value===q.correct){ fb.className='feedback correct'; fb.textContent='✓ Correct.'; }
+    else { fb.className='feedback incorrect'; fb.textContent='✗ Not quite.'; }
+  }
+}
+
+function loadScenarioTarget(targetIndex){
+  const scenario = SCENARIOS[currentScenarioIndex];
+  const vals = scenario.loadTargets[targetIndex].get(currentDraw);
+  caseWtCtrl.setValue(vals.weight);
+  caseDoseCtrl.setValue(vals.dose);
+  caseVdCtrl.setPerKgValue(vals.vdKg);
+  caseClCtrl.setAbsValue(vals.clMlMin);
+  renderCase();
+}
+
+function renderScenario(){
+  const scenario = SCENARIOS[currentScenarioIndex];
+  const panel = document.getElementById('scenarioPanel');
+  let html = `<h2 style="margin-top:0;"><span class="dot"></span>${scenario.title}</h2>
+    <p>${scenario.narrative(currentDraw)}</p>
+    <button class="action" onclick="regenerateScenario()">New Values</button>
+    ${scenario.loadTargets.map((t,i)=>`<button class="action secondary" onclick="loadScenarioTarget(${i})">${t.label}</button>`).join(' ')}`;
+  scenario.questions.forEach((q,i)=>{
+    html += `<div class="q"><p><strong>Q${i+1}.</strong> ${q.prompt(currentDraw)}</p>`;
+    if(q.type==='numeric'){
+      html += `<div class="pb-q" style="border:none; padding:0; margin-top:8px;"><div class="field">
+        <input type="text" id="scenQinput${i}" placeholder="Your answer">
+        <button class="action secondary" onclick="checkScenarioAnswer(${i})">Check</button>
+      </div></div>`;
+    } else {
+      html += q.opts.map(o=>`<label><input type="radio" name="scenQ${i}" value="${o[0]}"> ${o[1]}</label>`).join('');
+      html += `<button class="action" onclick="checkScenarioAnswer(${i})">Check</button>`;
+    }
+    html += `<div class="feedback" id="scenQfb${i}"></div></div>`;
+  });
+  panel.innerHTML = html;
+}
+function regenerateScenario(){
+  currentDraw = SCENARIOS[currentScenarioIndex].generate();
+  renderScenario();
+}
+renderScenario();
+
+/* ===================== ASSESSMENT TAB ===================== */
+const conceptual = [
+  {q:"An increase in V<sub>d</sub> (Cl held constant) would ___ the AUC.", opts:[["a","increase"],["b","decrease"],["c","not change"]], correct:"c"},
+  {q:"A decrease in Cl (V<sub>d</sub> held constant) would ___ the half-life.", opts:[["a","increase"],["b","decrease"],["c","not change"]], correct:"a"},
+  {q:"Doubling the dose (V<sub>d</sub> and Cl unchanged) would ___ C₀.", opts:[["a","double it"],["b","have no effect on it"],["c","quadruple it"]], correct:"a"},
+  {q:"V<sub>d</sub> and Cl are ___ of each other.", opts:[["a","dependent"],["b","independent"],["c","inversely defined"]], correct:"b"},
+  {q:"AUC = X₀/Cl. This means AUC depends on:", opts:[["a","Cl only"],["b","dose only"],["c","both dose and Cl"]], correct:"c"},
+];
+const conceptualDiv = document.getElementById('conceptualQuestions');
+conceptual.forEach((item,i)=>{
+  const div = document.createElement('div');
+  div.className='q';
+  div.innerHTML = `<p><strong>Q${i+1}.</strong> ${item.q}</p>` +
+    item.opts.map(o=>`<label><input type="radio" name="concept${i}" value="${o[0]}"> ${o[1]}</label>`).join('') +
+    `<button class="action" onclick="checkConceptual(${i})">Check</button><div class="feedback" id="conceptfb${i}"></div>`;
+  conceptualDiv.appendChild(div);
+});
+function checkConceptual(i){
+  const item = conceptual[i];
+  const sel = document.querySelector(`input[name="concept${i}"]:checked`);
+  const fb = document.getElementById('conceptfb'+i);
+  if(!sel){ fb.className='feedback incorrect'; fb.textContent='Select an answer first.'; return; }
+  if(sel.value===item.correct){ fb.className='feedback correct'; fb.textContent='✓ Correct.'; }
+  else { fb.className='feedback incorrect'; fb.textContent='✗ Not quite.'; }
+}
+
+// ===================== PROBLEM-BASED QUESTIONS: RANDOMIZED BANK =====================
+// Vd and Cl are sometimes reported per-kg, sometimes absolute — these helpers
+// pick a representation at random each time a problem regenerates, so students
+// get practice reading both forms (same idea as the unit toggles elsewhere).
+function genVdRepresentation(weight){
+  if(Math.random()<0.5){
+    const vdKg = randStep(0.40,1.10,0.05);
+    return {html:`V<sub>d</sub> = ${vdKg.toFixed(2)} L/kg`, perKg:true, VdL: vdKg*weight};
+  }
+  const VdL = randStep(20,90,5);
+  return {html:`V<sub>d</sub> = ${VdL} L`, perKg:false, VdL};
+}
+function genClRepresentation(weight){
+  if(Math.random()<0.5){
+    const clMlMin = randStep(30,120,5);
+    return {html:`Cl = ${clMlMin} mL/min`, perKg:false, ClMlMin:clMlMin};
+  }
+  const clPerKg = randStep(0.40,1.60,0.05);
+  return {html:`Cl = ${clPerKg.toFixed(2)} mL/min/kg`, perKg:true, ClMlMin:clPerKg*weight};
+}
+
+const PROBLEMS = [
+  {
+    title:'Calculate C₀ from Dose and Vd',
+    generate(){
+      const weight = randStep(50,100,5);
+      const vd = genVdRepresentation(weight);
+      return {weight, dose: randStep(500,2500,250), vd};
+    },
+    given(d){ return `Dose = ${d.dose} mg &nbsp;·&nbsp; ${d.vd.html}${d.vd.perKg?` (patient weight ${d.weight} kg)`:''}`; },
+    prompt(){ return 'Calculate C₀ (mg/L).'; },
+    answer(d){ return d.dose/d.vd.VdL; },
+    tol:0.05
+  },
+  {
+    title:'Calculate AUC from Dose and Cl',
+    generate(){
+      const weight = randStep(50,100,5);
+      const cl = genClRepresentation(weight);
+      return {weight, dose: randStep(500,2500,250), cl};
+    },
+    given(d){ return `Dose = ${d.dose} mg &nbsp;·&nbsp; ${d.cl.html}${d.cl.perKg?` (patient weight ${d.weight} kg)`:''}`; },
+    prompt(){ return 'Calculate AUC (mg·h/L), using AUC = X₀/Cl.'; },
+    answer(d){ return d.dose/(d.cl.ClMlMin*60/1000); },
+    tol:0.05
+  },
+  {
+    title:'Calculate Concentration at Time t',
+    generate(){
+      const weight = randStep(50,100,5);
+      const vd = genVdRepresentation(weight);
+      const cl = genClRepresentation(weight);
+      return {weight, dose: randStep(750,2500,250), vd, cl, t: randStep(2,24,2)};
+    },
+    given(d){ return `Dose = ${d.dose} mg &nbsp;·&nbsp; ${d.vd.html} &nbsp;·&nbsp; ${d.cl.html} (patient weight ${d.weight} kg)`; },
+    prompt(d){ return `Calculate the concentration at t = ${d.t} h (mg/L).`; },
+    answer(d){ const K=(d.cl.ClMlMin*60/1000)/d.vd.VdL, C0=d.dose/d.vd.VdL; return C0*Math.exp(-K*d.t); },
+    tol:0.08
+  },
+  {
+    title:'Calculate K from Half-Life',
+    generate(){ return {thalf: randStep(4,30,1)}; },
+    given(d){ return `t½ = ${d.thalf} hours`; },
+    prompt(){ return 'Calculate K (h⁻¹), using K = 0.693/t½.'; },
+    answer(d){ return 0.693/d.thalf; },
+    tol:0.05
+  },
+  {
+    title:'Calculate C₀ from Ct, Given K Directly',
+    generate(){ return {K: randStep(0.02,0.15,0.005), t: randStep(2,24,2), Ct: randStep(5,30,1)}; },
+    given(d){ return `C(t) = ${d.Ct} mg/L at t = ${d.t} h &nbsp;·&nbsp; K = ${d.K.toFixed(3)} h⁻¹`; },
+    prompt(){ return 'Calculate C₀ (mg/L). Hint: rearrange C(t) = C₀·e^(−K·t).'; },
+    answer(d){ return d.Ct*Math.exp(d.K*d.t); },
+    tol:0.05
+  },
+  {
+    title:'Calculate C₀ from Ct, Given Vd and Cl',
+    generate(){
+      const weight = randStep(50,100,5);
+      const vd = genVdRepresentation(weight);
+      const cl = genClRepresentation(weight);
+      return {weight, vd, cl, t: randStep(2,24,2), Ct: randStep(5,30,1)};
+    },
+    given(d){ return `C(t) = ${d.Ct} mg/L at t = ${d.t} h &nbsp;·&nbsp; ${d.vd.html} &nbsp;·&nbsp; ${d.cl.html} (patient weight ${d.weight} kg)`; },
+    prompt(){ return 'Calculate C₀ (mg/L). First derive K = Cl/Vd, then solve for C₀.'; },
+    answer(d){ const K=(d.cl.ClMlMin*60/1000)/d.vd.VdL; return d.Ct*Math.exp(K*d.t); },
+    tol:0.08
+  },
+  {
+    title:'Calculate C₀ from Ct, Given Half-Life',
+    generate(){ return {thalf: randStep(4,30,1), t: randStep(2,24,2), Ct: randStep(5,30,1)}; },
+    given(d){ return `C(t) = ${d.Ct} mg/L at t = ${d.t} h &nbsp;·&nbsp; t½ = ${d.thalf} hours`; },
+    prompt(){ return 'Calculate C₀ (mg/L). First derive K from t½, then solve for C₀.'; },
+    answer(d){ const K=0.693/d.thalf; return d.Ct*Math.exp(K*d.t); },
+    tol:0.08
+  },
+  {
+    title:'Calculate t½ from Vd and Cl',
+    generate(){
+      const weight = randStep(50,100,5);
+      const vd = genVdRepresentation(weight);
+      const cl = genClRepresentation(weight);
+      return {weight, vd, cl};
+    },
+    given(d){ return `${d.vd.html} &nbsp;·&nbsp; ${d.cl.html} (patient weight ${d.weight} kg)`; },
+    prompt(){ return 'Calculate t½ (hours).'; },
+    answer(d){ const K=(d.cl.ClMlMin*60/1000)/d.vd.VdL; return 0.693/K; },
+    tol:0.05
+  }
+];
+
+let problemDraws = PROBLEMS.map(p=>p.generate());
+
+function renderProblems(){
+  const container = document.getElementById('problemQuestions');
+  let html='';
+  PROBLEMS.forEach((p,i)=>{
+    const d = problemDraws[i];
+    html += `<div class="pb-q">
+      <p><strong>PB${i+1}. ${p.title}</strong></p>
+      <p class="sub" style="margin:4px 0 8px;">Given: ${p.given(d)}</p>
+      <p style="margin:0 0 8px;">${p.prompt(d)}</p>
+      <div class="field">
+        <input type="text" id="pbInput${i}" placeholder="Your answer">
+        <button class="action secondary" onclick="checkProblem(${i})">Check</button>
+        <button class="action secondary" onclick="regenProblem(${i})">New Numbers</button>
+      </div>
+      <div class="feedback" id="pbfb${i}"></div>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+function regenProblem(i){
+  problemDraws[i] = PROBLEMS[i].generate();
+  renderProblems();
+}
+function regenAllProblems(){
+  problemDraws = PROBLEMS.map(p=>p.generate());
+  renderProblems();
+}
+function checkProblem(i){
+  const p = PROBLEMS[i], d = problemDraws[i];
+  const val = parseFloat(document.getElementById('pbInput'+i).value);
+  const fb = document.getElementById('pbfb'+i);
+  if(isNaN(val)){ fb.className='feedback incorrect'; fb.textContent='Enter a numeric value.'; return; }
+  const correct = p.answer(d);
+  const within = Math.abs(val-correct)/Math.abs(correct) <= p.tol;
+  if(within){ fb.className='feedback correct'; fb.textContent=`✓ Correct (≈ ${correct.toFixed(3)}).`; }
+  else { fb.className='feedback incorrect'; fb.textContent=`✗ Not quite — correct answer is ≈ ${correct.toFixed(3)}.`; }
+}
+renderProblems();
+</script>
+
+</body>
+</html>
