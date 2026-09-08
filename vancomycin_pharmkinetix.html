@@ -71,9 +71,10 @@
      mangles unit letters like "h" -> "H" inside things like "Time (h)" or "Trough @12h" */
   table{width:100%; border-collapse:collapse; font-size:0.96rem;}
   td, th{padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:left;}
-  th{font-size:0.85rem; letter-spacing:0.02em; color:var(--ink-soft); font-weight:700;}
+  th{font-size:1.02rem; letter-spacing:0.02em; color:var(--ink-soft); font-weight:700;}
   tr.highlight td{background:rgba(63,158,110,0.14); font-weight:700;}
   .eq-table td:first-child{font-family:'Atkinson Hyperlegible Mono', monospace; font-weight:700;}
+  .eq-table tr.group-end td{border-bottom:2px solid var(--ink-soft);}
   .eq-note{font-size:0.88rem; color:var(--ink-soft);}
 
   /* ---- Reusable control widget ---- */
@@ -188,12 +189,23 @@
       <h2><span class="dot"></span>Equation Reference</h2>
       <table class="eq-table">
         <tr><th>Parameter</th><th>Equation</th><th>Note</th></tr>
-        <tr><td>C₀</td><td>X₀ / V<sub>d</sub></td><td>Depends on V<sub>d</sub> only</td></tr>
-        <tr><td>K</td><td>Cl / V<sub>d</sub></td><td>Always <em>derived</em> — never set directly</td></tr>
+        <tr><td>C₀</td><td>X₀ / V<sub>d</sub></td><td>Depends on both dose and V<sub>d</sub></td></tr>
+        <tr><td>K</td><td>Cl / V<sub>d</sub></td><td>Depends on both Cl and V<sub>d</sub> (always <em>derived</em> — never set directly)</td></tr>
         <tr><td>t½</td><td>0.693 / K</td><td>Depends on both V<sub>d</sub> and Cl</td></tr>
         <tr><td>C(t)</td><td>C₀ · e<sup>−K·t</sup></td><td>Equivalently (X₀/V<sub>d</sub>) · e<sup>−(Cl/V<sub>d</sub>)·t</sup></td></tr>
-        <tr><td>AUC</td><td>X₀ / Cl &nbsp;=&nbsp; C₀ / K</td><td>X₀/Cl holds at any time and for any route. C₀/K is equivalent to it, but only for IV bolus.</td></tr>
+        <tr><td>AUC</td><td>X₀ / Cl</td><td>Depends on both dose and Cl. X₀/Cl applies to any route. C₀/K is equivalent, but valid only for the IV bolus model.</td></tr>
       </table>
+    </div>
+
+    <div class="panel theory-eq">
+      <h2><span class="dot"></span>AUC-Guided Monitoring (2020 ASHP/IDSA/SIDP)</h2>
+      <p style="margin-top:0;">Vancomycin monitoring shifted from trough-only targets (historically 15–20 mg/L) to an <strong>AUC-guided</strong> approach. Trough alone correlates imperfectly with total systemic exposure — especially as dosing interval changes — so the guideline instead targets the ratio of total daily exposure to the organism's susceptibility.</p>
+      <table class="eq-table">
+        <tr><th>Metric</th><th>Equation</th><th>Target</th></tr>
+        <tr><td>AUC₂₄</td><td>(24 / τ) × (X₀ / Cl)</td><td>Total 24-hour exposure at steady state (τ = dosing interval, h)</td></tr>
+        <tr><td>AUC₂₄ / MIC</td><td>AUC₂₄ / MIC</td><td><strong>400–600</strong> mg·h/L, assuming MIC ≤ 1 mg/L by broth microdilution</td></tr>
+      </table>
+      <p class="eq-note" style="margin-bottom:0;">Below 400: risk of treatment failure / resistance. Above 600: increased nephrotoxicity risk. Trough concentration is still sometimes used as a practical surrogate, but AUC₂₄/MIC is now the primary target.</p>
     </div>
 
     <div class="panel theory-matrix">
@@ -201,8 +213,11 @@
       <table class="eq-table">
         <tr><th>Change</th><th>C₀</th><th>t½</th><th>AUC</th></tr>
         <tr><td><span class="arrow">↑</span> V<sub>d</sub> (Cl constant)</td><td><span class="arrow">↓</span></td><td><span class="arrow">↑</span></td><td>no change</td></tr>
+        <tr class="group-end"><td><span class="arrow">↓</span> V<sub>d</sub> (Cl constant)</td><td><span class="arrow">↑</span></td><td><span class="arrow">↓</span></td><td>no change</td></tr>
         <tr><td><span class="arrow">↑</span> Cl (V<sub>d</sub> constant)</td><td>no change</td><td><span class="arrow">↓</span></td><td><span class="arrow">↓</span></td></tr>
+        <tr class="group-end"><td><span class="arrow">↓</span> Cl (V<sub>d</sub> constant)</td><td>no change</td><td><span class="arrow">↑</span></td><td><span class="arrow">↑</span></td></tr>
         <tr><td><span class="arrow">↑</span> Dose (V<sub>d</sub>, Cl constant)</td><td><span class="arrow">↑</span> proportional</td><td>no change</td><td><span class="arrow">↑</span> proportional</td></tr>
+        <tr><td><span class="arrow">↓</span> Dose (V<sub>d</sub>, Cl constant)</td><td><span class="arrow">↓</span> proportional</td><td>no change</td><td><span class="arrow">↓</span> proportional</td></tr>
       </table>
       <p class="eq-note" style="margin-bottom:0;">V<sub>d</sub> and Cl are <strong>independent</strong> of each other — neither affects the other. They act together only through K to determine t½.</p>
     </div>
@@ -249,14 +264,21 @@
             <div class="out-card"><div class="label">C₀</div><div class="value mono" id="outC0">--</div><div class="unit">mg/L</div></div>
             <div class="out-card"><div class="label">K</div><div class="value mono" id="outKe">--</div><div class="unit">h⁻¹</div></div>
             <div class="out-card"><div class="label">t½</div><div class="value mono" id="outThalf">--</div><div class="unit">hours</div></div>
-            <div class="out-card"><div class="label">AUC</div><div class="value mono" id="outAuc">--</div><div class="unit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="outAuc">--</div><div class="unit">mg·h/L</div></div>
             <div class="out-card"><div class="label">Trough @12h</div><div class="value mono" id="outTrough">--</div><div class="unit">mg/L</div></div>
+            <div class="out-card"><div class="label">AUC₂₄</div><div class="value mono" id="outAuc24">--</div><div class="unit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">AUC₂₄ / MIC</div><div class="value mono" id="outAucMic">--</div><div class="unit">target 400–600</div></div>
           </div>
         </div>
 
         <div class="panel warning safe" id="warningPanel">
-          <h2><span class="dot"></span>Clinical Safety Check</h2>
+          <h2><span class="dot"></span>Trough-Based Check</h2>
           <p id="flagText" style="margin:0; font-weight:700;">--</p>
+        </div>
+
+        <div class="panel warning safe" id="aucPanel">
+          <h2><span class="dot"></span>AUC-Guided Check (AUC₂₄/MIC)</h2>
+          <p id="aucFlagText" style="margin:0; font-weight:700;">--</p>
         </div>
       </div>
     </div>
@@ -294,9 +316,15 @@
           <div class="out-grid centered">
             <div class="out-card"><div class="label">C₀</div><div class="value mono" id="caseC0">--</div><div class="unit">mg/L</div></div>
             <div class="out-card"><div class="label">t½</div><div class="value mono" id="caseThalf">--</div><div class="unit">hours</div></div>
-            <div class="out-card"><div class="label">AUC</div><div class="value mono" id="caseAuc">--</div><div class="unit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="caseAuc">--</div><div class="unit">mg·h/L</div></div>
             <div class="out-card"><div class="label">Trough @12h</div><div class="value mono" id="caseTrough">--</div><div class="unit">mg/L</div></div>
+            <div class="out-card"><div class="label">AUC₂₄</div><div class="value mono" id="caseAuc24">--</div><div class="unit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">AUC₂₄ / MIC</div><div class="value mono" id="caseAucMic">--</div><div class="unit">target 400–600</div></div>
           </div>
+        </div>
+        <div class="panel warning safe" id="caseAucPanel">
+          <h2><span class="dot"></span>AUC-Guided Check (AUC₂₄/MIC)</h2>
+          <p id="caseAucFlagText" style="margin:0; font-weight:700;">--</p>
         </div>
       </div>
     </div>
@@ -708,15 +736,33 @@ function attachHover(svgEl){
 attachHover(document.getElementById('pkSvg'));
 attachHover(document.getElementById('caseSvg'));
 
+/* ===================== AUC-GUIDED MONITORING HELPER ===================== */
+// AUC24 at steady state = (24/tau) doses per day × per-dose AUC (X0/Cl).
+// This is a standard steady-state superposition identity, not an approximation.
+function computeAucMic(perDoseAuc, tau, mic){
+  const auc24 = perDoseAuc * (24/tau);
+  const ratio = auc24 / mic;
+  return {auc24, ratio};
+}
+function describeAucMic(ratio){
+  if(ratio < 400) return {ok:false, text:`⚠ AUC₂₄/MIC = ${ratio.toFixed(0)} — below 400. Risk of treatment failure / resistance.`};
+  if(ratio > 600) return {ok:false, text:`⚠ AUC₂₄/MIC = ${ratio.toFixed(0)} — above 600. Increased nephrotoxicity risk.`};
+  return {ok:true, text:`✓ AUC₂₄/MIC = ${ratio.toFixed(0)} — within the 400–600 target range.`};
+}
+
 /* ===================== SIMULATION TAB ===================== */
 const simControlsDiv = document.getElementById('simControls');
 const simDoseCtrl = makeSliderControl(simControlsDiv, {label:'Dose', min:500,max:3000,step:250,value:1500,decimals:0,suffix:'mg', onChange:renderSimulation});
 const simWtCtrl = makeSliderControl(simControlsDiv, {label:'Weight', min:40,max:140,step:5,value:70,decimals:0,suffix:'kg', onChange:()=>{ simVdCtrl.refreshForWeight(); simClCtrl.refreshForWeight(); renderSimulation(); }});
 const simVdCtrl = makeVdControl(simControlsDiv, ()=>simWtCtrl.getValue(), renderSimulation);
 const simClCtrl = makeClControl(simControlsDiv, ()=>simWtCtrl.getValue(), renderSimulation);
+const simTauCtrl = makeSliderControl(simControlsDiv, {label:'Dosing Interval (τ)', min:6,max:48,step:6,value:12,decimals:0,suffix:'h', helpText:'Used for AUC₂₄/MIC, assuming steady state', onChange:renderSimulation});
+const simMicCtrl = makeSliderControl(simControlsDiv, {label:'MIC', min:0.25,max:4,step:0.25,value:1,decimals:2,suffix:'mg/L', helpText:'Default 1 mg/L per 2020 guideline (broth microdilution)', onChange:renderSimulation});
 
 const outC0=document.getElementById('outC0'), outKe=document.getElementById('outKe'), outThalf=document.getElementById('outThalf'), outAuc=document.getElementById('outAuc'), outTrough=document.getElementById('outTrough');
+const outAuc24=document.getElementById('outAuc24'), outAucMic=document.getElementById('outAucMic');
 const warningPanel=document.getElementById('warningPanel'), flagText=document.getElementById('flagText');
+const aucPanel=document.getElementById('aucPanel'), aucFlagText=document.getElementById('aucFlagText');
 const setRefBtn=document.getElementById('setRefBtn'), refChipWrap=document.getElementById('refChipWrap'), refLegend=document.getElementById('refLegend');
 let referenceR = null;
 let simScaleMode = 'linear';
@@ -765,6 +811,14 @@ function renderSimulation(){
     warningPanel.className='panel warning safe';
     flagText.textContent = `✓ Trough at 12h (${r.trough12.toFixed(1)} mg/L) is within the 10–20 mg/L range.`;
   }
+
+  const {auc24, ratio} = computeAucMic(r.auc, simTauCtrl.getValue(), simMicCtrl.getValue());
+  outAuc24.textContent = auc24.toFixed(0);
+  outAucMic.textContent = ratio.toFixed(0);
+  const aucStatus = describeAucMic(ratio);
+  aucPanel.className = 'panel warning' + (aucStatus.ok ? ' safe' : '');
+  aucFlagText.textContent = aucStatus.text;
+
   renderChart(document.getElementById('pkSvg'), r, referenceR, simScaleMode, simTimeCtrl.getValue());
   updateHalfLifeTable(r);
 }
@@ -790,6 +844,8 @@ const caseDoseCtrl = makeSliderControl(caseControlsDiv, {label:'Dose', min:500,m
 const caseVdCtrl = makeVdControl(caseControlsDiv, ()=>caseWtCtrl.getValue(), renderCase);
 // Default the case Cl to 25 mL/min (post-AKI) to match the scenario narrative.
 const caseClCtrl = makeClControl(caseControlsDiv, ()=>caseWtCtrl.getValue(), renderCase, 25);
+const caseTauCtrl = makeSliderControl(caseControlsDiv, {label:'Dosing Interval (τ)', min:6,max:48,step:6,value:12,decimals:0,suffix:'h', helpText:'Used for AUC₂₄/MIC, assuming steady state', onChange:renderCase});
+const caseMicCtrl = makeSliderControl(caseControlsDiv, {label:'MIC', min:0.25,max:4,step:0.25,value:1,decimals:2,suffix:'mg/L', helpText:'Default 1 mg/L per 2020 guideline', onChange:renderCase});
 
 let caseScaleMode = 'linear';
 document.querySelectorAll('#caseScaleToggle .unit-btn').forEach(btn=>{
@@ -810,6 +866,15 @@ function renderCase(){
   document.getElementById('caseThalf').textContent = r.thalf.toFixed(1);
   document.getElementById('caseAuc').textContent = r.auc.toFixed(0);
   document.getElementById('caseTrough').textContent = r.trough12.toFixed(1);
+
+  const {auc24, ratio} = computeAucMic(r.auc, caseTauCtrl.getValue(), caseMicCtrl.getValue());
+  document.getElementById('caseAuc24').textContent = auc24.toFixed(0);
+  document.getElementById('caseAucMic').textContent = ratio.toFixed(0);
+  const aucStatus = describeAucMic(ratio);
+  const caseAucPanel = document.getElementById('caseAucPanel');
+  caseAucPanel.className = 'panel warning' + (aucStatus.ok ? ' safe' : '');
+  document.getElementById('caseAucFlagText').textContent = aucStatus.text;
+
   renderChart(document.getElementById('caseSvg'), r, null, caseScaleMode, caseTimeCtrl.getValue());
 }
 renderCase();
