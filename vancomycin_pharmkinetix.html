@@ -499,46 +499,79 @@ function makeClControl(container, weightGetter, onChange, initialMlMin){
   wrap.className = 'param-box';
   wrap.innerHTML = `<div class="ctrl-label-row"><span>Clearance (Cl)</span></div>
     <div class="unit-toggle">
-      <button type="button" class="unit-btn active" data-mode="abs">mL/min</button>
-      <button type="button" class="unit-btn" data-mode="perkg">mL/min/kg</button>
+      <button type="button" class="unit-btn active" data-unit="mlmin">mL/min</button>
+      <button type="button" class="unit-btn" data-unit="lh">L/h</button>
+    </div>
+    <div class="unit-toggle">
+      <button type="button" class="unit-btn active" data-scale="abs">Absolute</button>
+      <button type="button" class="unit-btn" data-scale="perkg">Per kg</button>
     </div>
     <div class="cl-slot"></div>`;
   container.appendChild(wrap);
   const slot = wrap.querySelector('.cl-slot');
-  let mode = 'abs';
-  let absoluteMlMin = startVal;
+  // Two independent toggles (unit × scale) rather than four separate buttons —
+  // scales cleanly if more units are ever added, and matches how clinicians
+  // actually think about it (pick a unit, then decide absolute vs per-kg).
+  let unitMode = 'mlmin';   // 'mlmin' | 'lh'
+  let scaleMode = 'abs';    // 'abs' | 'perkg'
+  let absoluteMlMin = startVal; // canonical value, always stored in mL/min
+
+  const RANGES = {
+    mlmin_abs:   {min:5,    max:200, step:5,    decimals:0, suffix:'mL/min'},
+    mlmin_perkg: {min:0.05, max:3,   step:0.05, decimals:2, suffix:'mL/min/kg'},
+    lh_abs:      {min:0.5,  max:12,  step:0.5,  decimals:1, suffix:'L/h'},
+    lh_perkg:    {min:0.01, max:0.20,step:0.01, decimals:2, suffix:'L/h/kg'}
+  };
+  function toDisplay(absMlMin){
+    const base = unitMode==='lh' ? absMlMin*0.06 : absMlMin; // 1 mL/min = 0.06 L/h
+    return scaleMode==='perkg' ? base/weightGetter() : base;
+  }
+  function fromDisplay(v){
+    const base = scaleMode==='perkg' ? v*weightGetter() : v;
+    return unitMode==='lh' ? base/0.06 : base;
+  }
 
   const ctrl = makeSliderControl(slot, {
-    label:'', min:5, max:200, step:5, value:startVal, decimals:0, suffix:'mL/min', boxed:false,
+    label:'', min:RANGES.mlmin_abs.min, max:RANGES.mlmin_abs.max, step:RANGES.mlmin_abs.step,
+    value:startVal, decimals:RANGES.mlmin_abs.decimals, suffix:RANGES.mlmin_abs.suffix, boxed:false,
     helpText:'Tracks renal function (≈ CrCl)',
-    onChange:(v)=>{ absoluteMlMin = (mode==='abs') ? v : v*weightGetter(); onChange(); }
+    onChange:(v)=>{ absoluteMlMin = fromDisplay(v); onChange(); }
   });
 
-  wrap.querySelectorAll('.unit-btn').forEach(btn=>{
+  function applyModeChange(){
+    const r = RANGES[unitMode+'_'+scaleMode];
+    const displayVal = toDisplay(absoluteMlMin);
+    ctrl.setLabelUnit(r.decimals, r.suffix);
+    ctrl.setRange(r.min, r.max, r.step, parseFloat(displayVal.toFixed(r.decimals)));
+  }
+
+  wrap.querySelectorAll('[data-unit]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const newMode = btn.dataset.mode;
-      if(newMode===mode) return;
-      wrap.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+      if(btn.dataset.unit===unitMode) return;
+      wrap.querySelectorAll('[data-unit]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
-      mode = newMode;
-      if(mode==='abs'){
-        ctrl.setLabelUnit(0,'mL/min');
-        ctrl.setRange(5,200,5, Math.round(absoluteMlMin));
-      } else {
-        const v = absoluteMlMin/weightGetter();
-        ctrl.setLabelUnit(2,'mL/min/kg');
-        ctrl.setRange(0.05,3,0.05, parseFloat(v.toFixed(2)));
-      }
+      unitMode = btn.dataset.unit;
+      applyModeChange();
+    });
+  });
+  wrap.querySelectorAll('[data-scale]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(btn.dataset.scale===scaleMode) return;
+      wrap.querySelectorAll('[data-scale]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      scaleMode = btn.dataset.scale;
+      applyModeChange();
     });
   });
 
   return {
     getAbsoluteMlMin: ()=>absoluteMlMin,
-    refreshForWeight: ()=>{ if(mode==='perkg'){ absoluteMlMin = ctrl.getValue()*weightGetter(); onChange(); } },
+    refreshForWeight: ()=>{ if(scaleMode==='perkg'){ absoluteMlMin = fromDisplay(ctrl.getValue()); onChange(); } },
     // Programmatic setter (used by case-study "Load into Simulator" buttons):
-    // switches to mL/min mode if needed, then sets the value.
+    // always takes mL/min absolute regardless of the control's current display mode.
     setAbsValue: (v)=>{
-      if(mode!=='abs'){ wrap.querySelector('.unit-btn[data-mode="abs"]').click(); }
+      if(unitMode!=='mlmin'){ wrap.querySelector('[data-unit="mlmin"]').click(); }
+      if(scaleMode!=='abs'){ wrap.querySelector('[data-scale="abs"]').click(); }
       ctrl.setValue(Math.round(v));
     }
   };
