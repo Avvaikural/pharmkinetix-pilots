@@ -138,6 +138,7 @@
   }
   button.action:hover{background:var(--crimson-dark);}
   button.action.secondary{background:#fff; color:var(--crimson); border:1px solid var(--crimson);}
+  button.action.secondary:hover{background:var(--warn-bg);}
 
   .chart-wrap{background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:4px;}
   #pkSvg, #caseSvg{width:100%; height:auto; display:block;}
@@ -1154,7 +1155,7 @@ function renderScenario(){
       </div></div>`;
     } else {
       html += q.opts.map(o=>`<label><input type="radio" name="scenQ${i}" value="${o[0]}"> ${o[1]}</label>`).join('');
-      html += `<button class="action" onclick="checkScenarioAnswer(${i})">Check</button>`;
+      html += `<button class="action secondary" onclick="checkScenarioAnswer(${i})">Check</button>`;
     }
     html += `<div class="feedback" id="scenQfb${i}"></div></div>`;
   });
@@ -1180,7 +1181,7 @@ conceptual.forEach((item,i)=>{
   div.className='q';
   div.innerHTML = `<p><strong>Q${i+1}.</strong> ${item.q}</p>` +
     item.opts.map(o=>`<label><input type="radio" name="concept${i}" value="${o[0]}"> ${o[1]}</label>`).join('') +
-    `<button class="action" onclick="checkConceptual(${i})">Check</button><div class="feedback" id="conceptfb${i}"></div>`;
+    `<button class="action secondary" onclick="checkConceptual(${i})">Check</button><div class="feedback" id="conceptfb${i}"></div>`;
   conceptualDiv.appendChild(div);
 });
 function checkConceptual(i){
