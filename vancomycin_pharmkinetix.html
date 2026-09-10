@@ -455,7 +455,7 @@ function makeVdControl(container, weightGetter, onChange){
   let absoluteL = 0.70*weightGetter();
 
   const ctrl = makeSliderControl(slot, {
-    label:'', min:0.30, max:1.20, step:0.05, value:0.70, decimals:2, suffix:'L/kg', boxed:false,
+    label:'', min:0.30, max:1.20, step:0.01, value:0.70, decimals:2, suffix:'L/kg', boxed:false,
     helpText:'↑ in sepsis/burns · ↓ in dehydration',
     onChange:(v)=>{ absoluteL = (mode==='perkg') ? v*weightGetter() : v; onChange(); }
   });
@@ -470,10 +470,10 @@ function makeVdControl(container, weightGetter, onChange){
       if(mode==='perkg'){
         const v = absoluteL/weightGetter();
         ctrl.setLabelUnit(2,'L/kg');
-        ctrl.setRange(0.30,1.20,0.05, parseFloat(v.toFixed(2)));
+        ctrl.setRange(0.30,1.20,0.01, parseFloat(v.toFixed(2)));
       } else {
-        ctrl.setLabelUnit(0,'L');
-        ctrl.setRange(10,150,1, Math.round(absoluteL));
+        ctrl.setLabelUnit(2,'L');
+        ctrl.setRange(5,150,0.01, parseFloat(absoluteL.toFixed(2)));
       }
     });
   });
@@ -517,10 +517,10 @@ function makeClControl(container, weightGetter, onChange, initialMlMin){
   let absoluteMlMin = startVal; // canonical value, always stored in mL/min
 
   const RANGES = {
-    mlmin_abs:   {min:5,    max:200, step:5,    decimals:0, suffix:'mL/min'},
-    mlmin_perkg: {min:0.05, max:3,   step:0.05, decimals:2, suffix:'mL/min/kg'},
-    lh_abs:      {min:0.5,  max:12,  step:0.5,  decimals:1, suffix:'L/h'},
-    lh_perkg:    {min:0.01, max:0.20,step:0.01, decimals:2, suffix:'L/h/kg'}
+    mlmin_abs:   {min:5,    max:200,  step:0.01,  decimals:2, suffix:'mL/min'},
+    mlmin_perkg: {min:0.05, max:3,    step:0.01,  decimals:2, suffix:'mL/min/kg'},
+    lh_abs:      {min:0.1,  max:12,   step:0.01,  decimals:2, suffix:'L/h'},
+    lh_perkg:    {min:0.001,max:0.20, step:0.001, decimals:3, suffix:'L/h/kg'}
   };
   function toDisplay(absMlMin){
     const base = unitMode==='lh' ? absMlMin*0.06 : absMlMin; // 1 mL/min = 0.06 L/h
@@ -572,7 +572,7 @@ function makeClControl(container, weightGetter, onChange, initialMlMin){
     setAbsValue: (v)=>{
       if(unitMode!=='mlmin'){ wrap.querySelector('[data-unit="mlmin"]').click(); }
       if(scaleMode!=='abs'){ wrap.querySelector('[data-scale="abs"]').click(); }
-      ctrl.setValue(Math.round(v));
+      ctrl.setValue(parseFloat(v.toFixed(2)));
     }
   };
 }
