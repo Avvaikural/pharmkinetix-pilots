@@ -161,6 +161,17 @@
   .feedback.incorrect{display:block; background:#FBE3DB; color:#A2401F;}
 
   .pb-q{background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:12px;}
+
+  /* Monitoring Rules */
+  .rule-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .rule-row select{font-family:inherit; font-size:0.9rem; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:#fff;}
+  .rule-inline{display:inline-flex; align-items:center; gap:5px; font-size:0.88rem; color:var(--ink-soft);}
+  .rule-inline input, .rule-row input[type=text]{
+    font-family:'Atkinson Hyperlegible Mono', monospace; font-size:0.88rem; padding:5px 7px;
+    border:1px solid var(--line); border-radius:6px; width:72px;
+  }
+  .rule-row input[type=text]{width:80px;}
+  .rule-row button{padding:5px 10px; font-size:0.82rem; margin-top:0;}
   .pb-q .field{display:flex; align-items:center; gap:8px; margin-top:8px;}
   .pb-q input[type=text]{width:120px; font-family:'Atkinson Hyperlegible Mono', monospace; padding:5px 7px; border:1px solid var(--line); border-radius:6px;}
 
@@ -216,6 +227,7 @@
         <tr><td>AUC₂₄ / MIC</td><td>AUC₂₄ / MIC</td><td><strong>400–600</strong> mg·h/L, assuming MIC ≤ 1 mg/L by broth microdilution</td></tr>
       </table>
       <p class="eq-note" style="margin-bottom:0;">Below 400: risk of treatment failure / resistance. Above 600: increased nephrotoxicity risk. Trough concentration is still sometimes used as a practical surrogate, but AUC₂₄/MIC is now the primary target.</p>
+      <p class="eq-note" style="margin-bottom:0; margin-top:8px;"><strong>Note:</strong> AUC₂₄ assumes steady state across multiple doses, so it isn't directly computed in the current Simulation tab, which focuses on single-dose numbers (C₀, C(t), AUC per dose). This becomes directly usable once multiple-dose regimens are covered later in the course.</p>
     </div>
 
     <div class="panel theory-matrix">
@@ -238,7 +250,7 @@
     <div class="twocol">
       <div class="col">
         <div class="panel sim">
-          <h2>Adjust the Patient</h2>
+          <h2>Adjust PK Parameters</h2>
           <div id="simControls"></div>
           <button class="action" id="setRefBtn">Set as Reference</button>
           <div id="refChipWrap"></div>
@@ -262,8 +274,8 @@
             <div class="legend">
               <span><i style="background:#981E32"></i>Active patient</span>
               <span id="refLegend" style="display:none;"><i style="border-bottom:2px dashed #5E6A71;"></i>Reference</span>
-              <span><i style="background:#981E32"></i>Upper target (20 mg/L)</span>
-              <span><i style="background:#3F9E6E"></i>Lower target (10 mg/L)</span>
+              <span><i style="background:#981E32"></i>MTC (upper)</span>
+              <span><i style="background:#3F9E6E"></i>MEC (lower)</span>
             </div>
           </div>
         </div>
@@ -271,24 +283,18 @@
         <div class="panel outputs">
           <h2><span class="dot"></span>Live Outputs</h2>
           <div class="out-grid">
-            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="outC0">--</div><div class="unit">mg/L</div></div>
+            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="outC0">--</div><div class="unit" id="outC0Unit">mg/L</div></div>
             <div class="out-card"><div class="label">K</div><div class="value mono" id="outKe">--</div><div class="unit">h⁻¹</div></div>
             <div class="out-card"><div class="label">t½</div><div class="value mono" id="outThalf">--</div><div class="unit">hours</div></div>
-            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="outAuc">--</div><div class="unit">mg·h/L</div></div>
-            <div class="out-card"><div class="label">Trough @12h</div><div class="value mono" id="outTrough">--</div><div class="unit">mg/L</div></div>
-            <div class="out-card"><div class="label">AUC₂₄</div><div class="value mono" id="outAuc24">--</div><div class="unit">mg·h/L</div></div>
-            <div class="out-card"><div class="label">AUC₂₄ / MIC</div><div class="value mono" id="outAucMic">--</div><div class="unit">target 400–600</div></div>
-          </div>
+            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="outAuc">--</div><div class="unit" id="outAucUnit">mg·h/L</div></div>
+            </div>
         </div>
 
-        <div class="panel warning safe" id="warningPanel">
-          <h2><span class="dot"></span>Trough-Based Check</h2>
-          <p id="flagText" style="margin:0; font-weight:700;">--</p>
-        </div>
-
-        <div class="panel warning safe" id="aucPanel">
-          <h2><span class="dot"></span>AUC-Guided Check (AUC₂₄/MIC)</h2>
-          <p id="aucFlagText" style="margin:0; font-weight:700;">--</p>
+        <div class="panel sim">
+          <h2>Monitoring Rules</h2>
+          <p class="sub" style="margin-top:-2px;">Define whichever parameter and target range matter for the drug you're simulating — not just vancomycin's.</p>
+          <div id="simRules"></div>
+          <button class="action secondary" onclick="simRuleMgr.addRule()">+ Add Monitoring Rule</button>
         </div>
       </div>
     </div>
@@ -324,17 +330,15 @@
         </div>
         <div class="panel outputs">
           <div class="out-grid centered">
-            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="caseC0">--</div><div class="unit">mg/L</div></div>
+            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="caseC0">--</div><div class="unit" id="caseC0Unit">mg/L</div></div>
             <div class="out-card"><div class="label">t½</div><div class="value mono" id="caseThalf">--</div><div class="unit">hours</div></div>
-            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="caseAuc">--</div><div class="unit">mg·h/L</div></div>
-            <div class="out-card"><div class="label">Trough @12h</div><div class="value mono" id="caseTrough">--</div><div class="unit">mg/L</div></div>
-            <div class="out-card"><div class="label">AUC₂₄</div><div class="value mono" id="caseAuc24">--</div><div class="unit">mg·h/L</div></div>
-            <div class="out-card"><div class="label">AUC₂₄ / MIC</div><div class="value mono" id="caseAucMic">--</div><div class="unit">target 400–600</div></div>
-          </div>
+            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="caseAuc">--</div><div class="unit" id="caseAucUnit">mg·h/L</div></div>
+            </div>
         </div>
-        <div class="panel warning safe" id="caseAucPanel">
-          <h2><span class="dot"></span>AUC-Guided Check (AUC₂₄/MIC)</h2>
-          <p id="caseAucFlagText" style="margin:0; font-weight:700;">--</p>
+        <div class="panel sim">
+          <h2>Monitoring Rules</h2>
+          <div id="caseRules"></div>
+          <button class="action secondary" onclick="caseRuleMgr.addRule()">+ Add Monitoring Rule</button>
         </div>
       </div>
     </div>
@@ -450,6 +454,115 @@ function makeSliderControl(container, cfg){
 
 // Builds a Vd control that can toggle between "L/kg" (population-average, needs
 // weight) and "L" (absolute, as sometimes reported directly in the literature).
+// Weight in kg vs lbs — same canonical-storage + display-conversion pattern as
+// Vd/Cl. getKg() always returns kg regardless of display unit, since that's what
+// Vd/Cl per-kg math needs; the display itself can be in either unit.
+function makeWeightControl(container, onChange){
+  const wrap = document.createElement('div');
+  wrap.className = 'param-box';
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Weight</span></div>
+    <div class="unit-toggle">
+      <button type="button" class="unit-btn active" data-unit="kg">kg</button>
+      <button type="button" class="unit-btn" data-unit="lbs">lbs</button>
+    </div>
+    <div class="wt-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector('.wt-slot');
+  let unit = 'kg';
+
+  const RANGES = {
+    kg:  {min:40, max:140, step:1, decimals:0},
+    lbs: {min:88, max:308, step:1, decimals:0}
+  };
+  const KG_TO_LBS = 2.20462;
+
+  const ctrl = makeSliderControl(slot, {
+    label:'', min:RANGES.kg.min, max:RANGES.kg.max, step:RANGES.kg.step,
+    value:70, decimals:RANGES.kg.decimals, suffix:'kg', boxed:false,
+    onChange:()=>onChange()
+  });
+
+  wrap.querySelectorAll('.unit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const newUnit = btn.dataset.unit;
+      if(newUnit===unit) return;
+      wrap.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const factor = (newUnit==='lbs') ? KG_TO_LBS : (1/KG_TO_LBS);
+      const newVal = ctrl.getValue()*factor;
+      unit = newUnit;
+      const r = RANGES[unit];
+      ctrl.setLabelUnit(r.decimals, unit);
+      ctrl.setRange(r.min, r.max, r.step, Math.round(newVal));
+      onChange();
+    });
+  });
+
+  return {
+    getKg: ()=> unit==='kg' ? ctrl.getValue() : ctrl.getValue()/KG_TO_LBS,
+    getUnit: ()=>unit,
+    // Programmatic setter (used by case-study "Load into Simulator" buttons):
+    // always takes kg regardless of the control's current display unit.
+    setKg: (v)=>{
+      if(unit!=='kg'){ wrap.querySelector('.unit-btn[data-unit="kg"]').click(); }
+      ctrl.setValue(Math.round(v));
+    }
+  };
+}
+
+// Dose in mg (absolute) vs mg/kg — same canonical-storage + display-conversion
+// pattern as Vd/Cl. Many dosing decisions are literally made as mg/kg (e.g.
+// "20 mg/kg"), so this needs weight, same as Vd/Cl do.
+function makeDoseControl(container, weightGetter, onChange, initialMg){
+  const startVal = initialMg || 1500;
+  const wrap = document.createElement('div');
+  wrap.className = 'param-box';
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Dose</span></div>
+    <div class="unit-toggle">
+      <button type="button" class="unit-btn active" data-mode="abs">mg</button>
+      <button type="button" class="unit-btn" data-mode="perkg">mg/kg</button>
+    </div>
+    <div class="dose-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector('.dose-slot');
+  let mode = 'abs';
+  let absoluteMg = startVal;
+
+  const ctrl = makeSliderControl(slot, {
+    label:'', min:500, max:3000, step:250, value:startVal, decimals:0, suffix:'mg', boxed:false,
+    onChange:(v)=>{ absoluteMg = (mode==='abs') ? v : v*weightGetter(); onChange(); }
+  });
+
+  wrap.querySelectorAll('.unit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const newMode = btn.dataset.mode;
+      if(newMode===mode) return;
+      wrap.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = newMode;
+      if(mode==='abs'){
+        ctrl.setLabelUnit(0,'mg');
+        ctrl.setRange(500,3000,250, Math.round(absoluteMg));
+      } else {
+        const v = absoluteMg/weightGetter();
+        ctrl.setLabelUnit(1,'mg/kg');
+        ctrl.setRange(5,40,0.5, parseFloat(v.toFixed(1)));
+      }
+    });
+  });
+
+  return {
+    getAbsoluteMg: ()=>absoluteMg,
+    refreshForWeight: ()=>{ if(mode==='perkg'){ absoluteMg = ctrl.getValue()*weightGetter(); onChange(); } },
+    // Programmatic setter (used by case-study "Load into Simulator" buttons):
+    // always takes mg regardless of the control's current display mode.
+    setAbsValue: (v)=>{
+      if(mode!=='abs'){ wrap.querySelector('.unit-btn[data-mode="abs"]').click(); }
+      ctrl.setValue(Math.round(v));
+    }
+  };
+}
+
 function makeVdControl(container, weightGetter, onChange){
   const wrap = document.createElement('div');
   wrap.className = 'param-box';
@@ -637,19 +750,29 @@ function computeBounds(dataMax, dataMinPositive, mode){
   return {hi};
 }
 
-function renderChart(svgEl, activeR, refR, mode, tMax){
+function renderChart(svgEl, activeR, refR, mode, tMax, concScale, concUnit, mecVal, mtcVal){
   mode = mode || 'linear';
   tMax = tMax || 24;
-  const activePts = curvePoints(activeR, tMax);
-  const allVals = activePts.map(p=>p[1]).concat([activeR.C0]);
-  if(refR){ const refPts=curvePoints(refR, tMax); allVals.push(...refPts.map(p=>p[1]), refR.C0); }
+  concScale = concScale || 1;
+  concUnit = concUnit || 'mg/L';
+  // activeR/refR are always canonical mg/L-basis (that's what Dose/Vd/Cl math
+  // naturally produces); concScale converts to whatever unit MEC/MTC is set to.
+  const activePts = curvePoints(activeR, tMax).map(p=>[p[0], p[1]*concScale]);
+  const allVals = activePts.map(p=>p[1]).concat([activeR.C0*concScale]);
+  if(mecVal!=null) allVals.push(mecVal);
+  if(mtcVal!=null) allVals.push(mtcVal);
+  let refPts = null;
+  if(refR){
+    refPts = curvePoints(refR, tMax).map(p=>[p[0], p[1]*concScale]);
+    allVals.push(...refPts.map(p=>p[1]), refR.C0*concScale);
+  }
   const dataMax = Math.max(...allVals);
   const dataMinPositive = Math.min(...allVals.filter(v=>v>0));
   const bounds = computeBounds(dataMax, dataMinPositive, mode);
 
   // Stash the state the hover handler needs so it can recompute C(t) at any
   // cursor position without re-deriving bounds/scale each mousemove.
-  svgEl.__chartState = {activeR, refR, mode, tMax, bounds};
+  svgEl.__chartState = {activeR, refR, mode, tMax, bounds, concScale, concUnit};
 
   svgEl.setAttribute('viewBox', `0 0 ${SVG_W} ${SVG_H}`);
   let gridLines='', yLabels='';
@@ -680,13 +803,13 @@ function renderChart(svgEl, activeR, refR, mode, tMax){
   // Area fill only makes sense against a true zero baseline, which log scale
   // doesn't have — so we only fill in linear mode.
   const areaPath = curvePath + ` L${xScale(tMax,tMax).toFixed(1)},${yScale(0,bounds,mode).toFixed(1)} L${xScale(0,tMax).toFixed(1)},${yScale(0,bounds,mode).toFixed(1)} Z`;
-  const upperInRange = mode==='log' ? (20>=bounds.lo && 20<=bounds.hi) : (20<=bounds.hi);
-  const lowerInRange = mode==='log' ? (10>=bounds.lo && 10<=bounds.hi) : (10<=bounds.hi);
-  const upperY = yScale(20,bounds,mode), lowerY = yScale(10,bounds,mode);
+  const upperInRange = mtcVal!=null && (mode==='log' ? (mtcVal>=bounds.lo && mtcVal<=bounds.hi) : (mtcVal<=bounds.hi));
+  const lowerInRange = mecVal!=null && (mode==='log' ? (mecVal>=bounds.lo && mecVal<=bounds.hi) : (mecVal<=bounds.hi));
+  const upperY = mtcVal!=null ? yScale(mtcVal,bounds,mode) : 0;
+  const lowerY = mecVal!=null ? yScale(mecVal,bounds,mode) : 0;
 
   let refPath = '';
-  if(refR){
-    const refPts = curvePoints(refR, tMax);
+  if(refPts){
     refPath = `<path d="${pathFromPoints(refPts,bounds,mode,tMax)}" fill="none" stroke="#5E6A71" stroke-width="2.5" stroke-dasharray="7,5"/>`;
   }
 
@@ -696,7 +819,7 @@ function renderChart(svgEl, activeR, refR, mode, tMax){
     <line x1="${PAD.left}" y1="${SVG_H-PAD.bottom}" x2="${SVG_W-PAD.right}" y2="${SVG_H-PAD.bottom}" stroke="#DADDDF" stroke-width="1.5"/>
     ${yLabels}${xLabels}
     <text x="${PAD.left+PLOT_W/2}" y="${SVG_H-6}" text-anchor="middle" font-size="15" font-weight="700" fill="#5E6A71" font-family="Atkinson Hyperlegible, sans-serif">Time (hours)</text>
-    <text x="18" y="${PAD.top+PLOT_H/2}" text-anchor="middle" font-size="15" font-weight="700" fill="#5E6A71" font-family="Atkinson Hyperlegible, sans-serif" transform="rotate(-90 18 ${PAD.top+PLOT_H/2})">Concentration (mg/L)${mode==='log'?' — log scale':''}</text>
+    <text x="18" y="${PAD.top+PLOT_H/2}" text-anchor="middle" font-size="15" font-weight="700" fill="#5E6A71" font-family="Atkinson Hyperlegible, sans-serif" transform="rotate(-90 18 ${PAD.top+PLOT_H/2})">Concentration (${concUnit})${mode==='log'?' — log scale':''}</text>
     ${upperInRange?`<line x1="${PAD.left}" y1="${upperY.toFixed(1)}" x2="${SVG_W-PAD.right}" y2="${upperY.toFixed(1)}" stroke="#981E32" stroke-width="1.5" stroke-dasharray="6,4"/>`:''}
     ${lowerInRange?`<line x1="${PAD.left}" y1="${lowerY.toFixed(1)}" x2="${SVG_W-PAD.right}" y2="${lowerY.toFixed(1)}" stroke="#3F9E6E" stroke-width="1.5" stroke-dasharray="6,4"/>`:''}
     ${mode==='linear'?`<path d="${areaPath}" fill="rgba(232,120,92,0.08)" stroke="none"/>`:''}
@@ -733,7 +856,9 @@ function attachHover(svgEl){
 
     let t = ((svgP.x - PAD.left) / PLOT_W) * state.tMax;
     t = Math.max(0, Math.min(state.tMax, t));
-    const activeC = state.activeR.C0 * Math.exp(-state.activeR.ke * t);
+    const scale = state.concScale || 1;
+    const unit = state.concUnit || 'mg/L';
+    const activeC = state.activeR.C0 * Math.exp(-state.activeR.ke * t) * scale;
     const xPix = xScale(t, state.tMax);
     const yPixActive = yScale(activeC, state.bounds, state.mode);
 
@@ -749,14 +874,14 @@ function attachHover(svgEl){
     dotActive.setAttribute('cx', xPix.toFixed(1));
     dotActive.setAttribute('cy', yPixActive.toFixed(1));
 
-    const lines = [`t = ${t.toFixed(1)} h`, `Active: ${activeC.toFixed(2)} mg/L`];
+    const lines = [`t = ${t.toFixed(1)} h`, `Active: ${activeC.toFixed(2)} ${unit}`];
     if(state.refR){
-      const refC = state.refR.C0 * Math.exp(-state.refR.ke * t);
+      const refC = state.refR.C0 * Math.exp(-state.refR.ke * t) * scale;
       const yPixRef = yScale(refC, state.bounds, state.mode);
       dotRef.style.display = 'block';
       dotRef.setAttribute('cx', xPix.toFixed(1));
       dotRef.setAttribute('cy', yPixRef.toFixed(1));
-      lines.push(`Reference: ${refC.toFixed(2)} mg/L`);
+      lines.push(`Reference: ${refC.toFixed(2)} ${unit}`);
     } else {
       dotRef.style.display = 'none';
     }
@@ -779,33 +904,222 @@ function attachHover(svgEl){
 attachHover(document.getElementById('pkSvg'));
 attachHover(document.getElementById('caseSvg'));
 
-/* ===================== AUC-GUIDED MONITORING HELPER ===================== */
-// AUC24 at steady state = (24/tau) doses per day × per-dose AUC (X0/Cl).
-// This is a standard steady-state superposition identity, not an approximation.
-function computeAucMic(perDoseAuc, tau, mic){
-  const auc24 = perDoseAuc * (24/tau);
-  const ratio = auc24 / mic;
-  return {auc24, ratio};
+/* ===================== THERAPEUTIC WINDOW (MEC/MTC) CONTROL =====================
+   Replaces the old standalone MIC slider. MEC/MTC are the two numbers that drive
+   the chart's dashed reference lines and seed the default Monitoring Rule — MIC
+   moves inline into the AUC24/MIC rule itself, since it's specific to that one
+   parameter choice, not a property of the patient. mg/L and ng/mL are both real
+   units drugs are reported in (e.g. digoxin's therapeutic range is ng/mL-scale),
+   so both MEC and MTC share one unit toggle rather than each having their own —
+   it would never make sense to view them in different units simultaneously. */
+function makeTherapeuticWindowControl(container, onChange){
+  const wrap = document.createElement('div');
+  wrap.className = 'param-box';
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Therapeutic Window (MEC–MTC)</span></div>
+    <div class="unit-toggle">
+      <button type="button" class="unit-btn active" data-unit="mg/L">mg/L</button>
+      <button type="button" class="unit-btn" data-unit="ng/mL">ng/mL</button>
+    </div>
+    <div class="mec-slot"></div>
+    <div class="mtc-slot"></div>`;
+  container.appendChild(wrap);
+  const mecSlot = wrap.querySelector('.mec-slot');
+  const mtcSlot = wrap.querySelector('.mtc-slot');
+  let unit = 'mg/L';
+
+  const RANGES = {
+    'mg/L':  {min:1,   max:50, step:0.5, decimals:1},
+    'ng/mL': {min:0.1, max:10, step:0.1, decimals:2}
+  };
+
+  const mecCtrl = makeSliderControl(mecSlot, {
+    label:'MEC (lower)', min:RANGES['mg/L'].min, max:RANGES['mg/L'].max, step:RANGES['mg/L'].step,
+    value:10, decimals:RANGES['mg/L'].decimals, suffix:'mg/L', boxed:false, onChange:()=>onChange()
+  });
+  const mtcCtrl = makeSliderControl(mtcSlot, {
+    label:'MTC (upper)', min:RANGES['mg/L'].min, max:RANGES['mg/L'].max, step:RANGES['mg/L'].step,
+    value:20, decimals:RANGES['mg/L'].decimals, suffix:'mg/L', boxed:false, onChange:()=>onChange()
+  });
+
+  wrap.querySelectorAll('.unit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const newUnit = btn.dataset.unit;
+      if(newUnit===unit) return;
+      wrap.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const factor = (newUnit==='ng/mL') ? 1000 : 0.001; // 1 mg/L = 1000 ng/mL
+      const newMec = mecCtrl.getValue()*factor;
+      const newMtc = mtcCtrl.getValue()*factor;
+      unit = newUnit;
+      const r = RANGES[unit];
+      mecCtrl.setLabelUnit(r.decimals, unit);
+      mecCtrl.setRange(r.min, r.max, r.step, parseFloat(newMec.toFixed(r.decimals)));
+      mtcCtrl.setLabelUnit(r.decimals, unit);
+      mtcCtrl.setRange(r.min, r.max, r.step, parseFloat(newMtc.toFixed(r.decimals)));
+      onChange(factor); // caller uses this to rescale any Monitoring Rules using concentration units
+    });
+  });
+
+  return {
+    getMec: ()=>mecCtrl.getValue(),
+    getMtc: ()=>mtcCtrl.getValue(),
+    getUnit: ()=>unit
+  };
 }
-function describeAucMic(ratio){
-  if(ratio < 400) return {ok:false, text:`⚠ AUC₂₄/MIC = ${ratio.toFixed(0)} — below 400. Risk of treatment failure / resistance.`};
-  if(ratio > 600) return {ok:false, text:`⚠ AUC₂₄/MIC = ${ratio.toFixed(0)} — above 600. Increased nephrotoxicity risk.`};
-  return {ok:true, text:`✓ AUC₂₄/MIC = ${ratio.toFixed(0)} — within the 400–600 target range.`};
+
+/* ===================== MONITORING RULES (generic, drug-agnostic) =====================
+   The PK math produces the same pool of numbers regardless of which drug is being
+   simulated (C0, C(t), AUC per dose). What differs drug to drug is only which of
+   these a guideline checks and what range counts as acceptable — so rather than
+   hardcoding vancomycin's trough panel, this renders an editable list of rules a
+   student can point at any parameter, any range. Units for concentration-type
+   parameters follow the Therapeutic Window's mg/L↔ng/mL toggle automatically
+   (getContext().concUnit / concScale) rather than being freely-typed per rule,
+   which is what caused the "wrong unit" bug for AUC-type rows previously.
+   Whenever a rule's parameter type changes, its bounds are cleared rather than
+   left stale — a leftover 10–20 range means nothing once the rule is checking
+   AUC instead of a concentration, and showing a false pass/fail against numbers
+   that don't apply is worse than admitting the rule isn't configured yet. */
+function createRuleManager(containerId, getContext, defaultRules){
+  let rules = defaultRules.map((r,i)=>({id:i, ...r}));
+  let nextId = rules.length;
+
+  function computeRawValue(rule, ctx){
+    // Always canonical mg/L-basis — scaling for display happens in render(),
+    // based on the current concentration unit.
+    if(rule.param==='c0') return ctx.r.C0;
+    if(rule.param==='ct') return ctx.r.C0*Math.exp(-ctx.r.ke*(rule.t||0));
+    if(rule.param==='auc') return ctx.r.auc;
+    return NaN;
+  }
+  function paramLabel(rule){
+    if(rule.param==='c0') return 'C₀';
+    if(rule.param==='ct') return `C(t=${rule.t}h)`;
+    if(rule.param==='auc') return 'AUC (per dose)';
+    return '';
+  }
+  function unitLabel(rule, ctx){
+    if(rule.param==='c0' || rule.param==='ct') return ctx.concUnit;
+    if(rule.param==='auc') return ctx.concUnit==='mg/L' ? 'mg·h/L' : 'ng·h/mL';
+    return '';
+  }
+
+  function render(){
+    const ctx = getContext();
+    const container = document.getElementById(containerId);
+    let html = '';
+    rules.forEach(rule=>{
+      const raw = computeRawValue(rule, ctx);
+      const val = raw*ctx.concScale; // every remaining parameter type is concentration-based
+      const unit = unitLabel(rule, ctx);
+      const hasBounds = rule.lower!=null && rule.upper!=null && !isNaN(rule.lower) && !isNaN(rule.upper);
+
+      let wrapClass, icon, statusLine;
+      if(!hasBounds){
+        wrapClass = 'panel sim';
+        icon = '○';
+        statusLine = `${paramLabel(rule)} = ${isFinite(val)?val.toFixed(2):'--'}${unit?' '+unit:''} — set a target range to evaluate.`;
+      } else {
+        const within = val>=rule.lower && val<=rule.upper;
+        const direction = within ? 'within' : (val<rule.lower ? 'below' : 'above');
+        wrapClass = 'panel warning' + (within?' safe':'');
+        icon = within ? '✓' : '⚠';
+        statusLine = `${paramLabel(rule)} = ${isFinite(val)?val.toFixed(2):'--'}${unit?' '+unit:''} — ${direction} target (${rule.lower}–${rule.upper}${unit?' '+unit:''})`;
+      }
+
+      html += `
+      <div class="${wrapClass}">
+        <div class="rule-row">
+          <select class="rule-param-select" data-rid="${rule.id}">
+            <option value="c0" ${rule.param==='c0'?'selected':''}>C₀ (initial/peak)</option>
+            <option value="ct" ${rule.param==='ct'?'selected':''}>Concentration at time t</option>
+            <option value="auc" ${rule.param==='auc'?'selected':''}>AUC (per dose)</option>
+          </select>
+          ${rule.param==='ct' ? `<span class="rule-inline">t = <input type="number" step="0.5" class="rule-t-input" data-rid="${rule.id}" value="${rule.t}"> h</span>` : ''}
+          <span class="rule-inline">Lower <input type="number" step="any" class="rule-lower-input" data-rid="${rule.id}" value="${rule.lower??''}" placeholder="—"></span>
+          <span class="rule-inline">Upper <input type="number" step="any" class="rule-upper-input" data-rid="${rule.id}" value="${rule.upper??''}" placeholder="—"></span>
+          ${unit?`<span class="rule-inline">${unit}</span>`:''}
+          <button class="action secondary" data-rid="${rule.id}" data-act="remove">✕</button>
+        </div>
+        <p style="margin:8px 0 0; font-weight:700;">${icon} ${statusLine}</p>
+      </div>`;
+    });
+    container.innerHTML = html;
+
+    container.querySelectorAll('.rule-param-select').forEach(el=>el.addEventListener('change', e=>{
+      const rule = rules.find(x=>x.id===parseInt(e.target.dataset.rid));
+      rule.param = e.target.value;
+      if(rule.param==='ct' && rule.t===undefined) rule.t = 12;
+      // Bounds from the previous parameter type almost never apply to the new
+      // one (10-20 mg/L means nothing once the rule checks AUC) — clear them
+      // rather than silently keep evaluating against numbers that don't apply.
+      rule.lower = null;
+      rule.upper = null;
+      render();
+    }));
+    container.querySelectorAll('.rule-t-input').forEach(el=>el.addEventListener('change', e=>{
+      rules.find(x=>x.id===parseInt(e.target.dataset.rid)).t = parseFloat(e.target.value)||0;
+      render();
+    }));
+    container.querySelectorAll('.rule-lower-input').forEach(el=>el.addEventListener('change', e=>{
+      const v = e.target.value;
+      rules.find(x=>x.id===parseInt(e.target.dataset.rid)).lower = (v==='') ? null : parseFloat(v);
+      render();
+    }));
+    container.querySelectorAll('.rule-upper-input').forEach(el=>el.addEventListener('change', e=>{
+      const v = e.target.value;
+      rules.find(x=>x.id===parseInt(e.target.dataset.rid)).upper = (v==='') ? null : parseFloat(v);
+      render();
+    }));
+    container.querySelectorAll('[data-act="remove"]').forEach(el=>el.addEventListener('click', e=>{
+      rules = rules.filter(x=>x.id!==parseInt(e.target.dataset.rid));
+      render();
+    }));
+  }
+
+  function addRule(){
+    const ctx = getContext();
+    rules.push({id:nextId++, param:'ct', t:12, lower:ctx.mec, upper:ctx.mtc});
+    render();
+  }
+
+  // Called when the Therapeutic Window's unit toggle flips, so existing rules'
+  // numeric bounds stay numerically consistent with the new display scale.
+  function rescaleConcentrationUnits(factor){
+    rules.forEach(r=>{
+      if(r.lower!=null) r.lower*=factor;
+      if(r.upper!=null) r.upper*=factor;
+    });
+  }
+
+  return {render, addRule, rescaleConcentrationUnits};
 }
 
 /* ===================== SIMULATION TAB ===================== */
 const simControlsDiv = document.getElementById('simControls');
-const simDoseCtrl = makeSliderControl(simControlsDiv, {label:'Dose', min:500,max:3000,step:250,value:1500,decimals:0,suffix:'mg', onChange:renderSimulation});
-const simWtCtrl = makeSliderControl(simControlsDiv, {label:'Weight', min:40,max:140,step:5,value:70,decimals:0,suffix:'kg', onChange:()=>{ simVdCtrl.refreshForWeight(); simClCtrl.refreshForWeight(); renderSimulation(); }});
-const simVdCtrl = makeVdControl(simControlsDiv, ()=>simWtCtrl.getValue(), renderSimulation);
-const simClCtrl = makeClControl(simControlsDiv, ()=>simWtCtrl.getValue(), renderSimulation);
-const simTauCtrl = makeSliderControl(simControlsDiv, {label:'Dosing Interval (τ)', min:6,max:48,step:6,value:12,decimals:0,suffix:'h', helpText:'Used for AUC₂₄/MIC, assuming steady state', onChange:renderSimulation});
-const simMicCtrl = makeSliderControl(simControlsDiv, {label:'MIC', min:0.25,max:4,step:0.25,value:1,decimals:2,suffix:'mg/L', helpText:'Default 1 mg/L per 2020 guideline (broth microdilution)', onChange:renderSimulation});
+const simWtCtrl = makeWeightControl(simControlsDiv, ()=>{ simDoseCtrl.refreshForWeight(); simVdCtrl.refreshForWeight(); simClCtrl.refreshForWeight(); renderSimulation(); });
+const simDoseCtrl = makeDoseControl(simControlsDiv, ()=>simWtCtrl.getKg(), renderSimulation, 1500);
+const simVdCtrl = makeVdControl(simControlsDiv, ()=>simWtCtrl.getKg(), renderSimulation);
+const simClCtrl = makeClControl(simControlsDiv, ()=>simWtCtrl.getKg(), renderSimulation);
+const simWindowCtrl = makeTherapeuticWindowControl(simControlsDiv, (factor)=>{
+  if(factor){ simRuleMgr.rescaleConcentrationUnits(factor); }
+  renderSimulation();
+});
 
-const outC0=document.getElementById('outC0'), outKe=document.getElementById('outKe'), outThalf=document.getElementById('outThalf'), outAuc=document.getElementById('outAuc'), outTrough=document.getElementById('outTrough');
-const outAuc24=document.getElementById('outAuc24'), outAucMic=document.getElementById('outAucMic');
-const warningPanel=document.getElementById('warningPanel'), flagText=document.getElementById('flagText');
-const aucPanel=document.getElementById('aucPanel'), aucFlagText=document.getElementById('aucFlagText');
+const simRuleMgr = createRuleManager('simRules', ()=>{
+  const unit = simWindowCtrl.getUnit();
+  return {
+    r: currentSimParams(),
+    concScale: unit==='ng/mL' ? 1000 : 1,
+    concUnit: unit,
+    mec: simWindowCtrl.getMec(),
+    mtc: simWindowCtrl.getMtc()
+  };
+}, [
+  {param:'ct', t:12, lower:simWindowCtrl.getMec(), upper:simWindowCtrl.getMtc()}
+]);
+
+const outC0=document.getElementById('outC0'), outKe=document.getElementById('outKe'), outThalf=document.getElementById('outThalf'), outAuc=document.getElementById('outAuc');
 const setRefBtn=document.getElementById('setRefBtn'), refChipWrap=document.getElementById('refChipWrap'), refLegend=document.getElementById('refLegend');
 let referenceR = null;
 let simScaleMode = 'linear';
@@ -822,48 +1136,37 @@ const simTimeCtrl = makeSliderControl(document.getElementById('simTimeRangeSlot'
 });
 
 function currentSimParams(){
-  return computePK(simDoseCtrl.getValue(), simVdCtrl.getAbsoluteL(), simClCtrl.getAbsoluteMlMin());
+  return computePK(simDoseCtrl.getAbsoluteMg(), simVdCtrl.getAbsoluteL(), simClCtrl.getAbsoluteMlMin());
 }
 
-function updateHalfLifeTable(r){
-  let html = '<tr><th>n</th><th>Time (h)</th><th>C(t) mg/L</th><th>% remaining</th></tr>';
+function updateHalfLifeTable(r, scale, unit){
+  let html = `<tr><th>n</th><th>Time (h)</th><th>C(t) ${unit}</th><th>% remaining</th></tr>`;
   for(let n=1;n<=6;n++){
     const t = n*r.thalf;
-    const c = r.C0/Math.pow(2,n);
+    const c = (r.C0/Math.pow(2,n))*scale;
     const pct = 100/Math.pow(2,n);
-    html += `<tr class="${n===5?'highlight':''}"><td>${n}</td><td>${t.toFixed(1)}</td><td>${c.toFixed(2)}</td><td>${pct.toFixed(1)}</td></tr>`;
+    html += `<tr class="${n===5?'highlight':''}"><td>${n}</td><td>${t.toFixed(1)}</td><td>${c.toFixed(unit==='ng/mL'?0:2)}</td><td>${pct.toFixed(1)}</td></tr>`;
   }
   document.getElementById('halfLifeTable').innerHTML = html;
 }
 
 function renderSimulation(){
   const r = currentSimParams();
-  outC0.textContent = r.C0.toFixed(1);
+  const unit = simWindowCtrl.getUnit();
+  const scale = unit==='ng/mL' ? 1000 : 1;
+  const decimals = unit==='ng/mL' ? 0 : 2;
+  const aucUnit = unit==='mg/L' ? 'mg·h/L' : 'ng·h/mL';
+
+  outC0.textContent = (r.C0*scale).toFixed(decimals);
   outKe.textContent = r.ke.toFixed(3);
   outThalf.textContent = r.thalf.toFixed(1);
-  outAuc.textContent = r.auc.toFixed(0);
-  outTrough.textContent = r.trough12.toFixed(1);
+  outAuc.textContent = (r.auc*scale).toFixed(decimals);
+  document.getElementById('outC0Unit').textContent = unit;
+  document.getElementById('outAucUnit').textContent = aucUnit;
 
-  if(r.trough12>20){
-    warningPanel.className='panel warning';
-    flagText.textContent = `⚠ Trough at 12h (${r.trough12.toFixed(1)} mg/L) exceeds 20 mg/L — elevated nephrotoxicity risk.`;
-  } else if(r.trough12<10){
-    warningPanel.className='panel warning';
-    flagText.textContent = `⚠ Trough at 12h (${r.trough12.toFixed(1)} mg/L) is below 10 mg/L — subtherapeutic.`;
-  } else {
-    warningPanel.className='panel warning safe';
-    flagText.textContent = `✓ Trough at 12h (${r.trough12.toFixed(1)} mg/L) is within the 10–20 mg/L range.`;
-  }
-
-  const {auc24, ratio} = computeAucMic(r.auc, simTauCtrl.getValue(), simMicCtrl.getValue());
-  outAuc24.textContent = auc24.toFixed(0);
-  outAucMic.textContent = ratio.toFixed(0);
-  const aucStatus = describeAucMic(ratio);
-  aucPanel.className = 'panel warning' + (aucStatus.ok ? ' safe' : '');
-  aucFlagText.textContent = aucStatus.text;
-
-  renderChart(document.getElementById('pkSvg'), r, referenceR, simScaleMode, simTimeCtrl.getValue());
-  updateHalfLifeTable(r);
+  simRuleMgr.render();
+  renderChart(document.getElementById('pkSvg'), r, referenceR, simScaleMode, simTimeCtrl.getValue(), scale, unit, simWindowCtrl.getMec(), simWindowCtrl.getMtc());
+  updateHalfLifeTable(r, scale, unit);
 }
 
 setRefBtn.addEventListener('click', ()=>{
@@ -882,13 +1185,28 @@ renderSimulation();
 
 /* ===================== CASE STUDIES TAB ===================== */
 const caseControlsDiv = document.getElementById('caseControls');
-const caseWtCtrl = makeSliderControl(caseControlsDiv, {label:'Patient Weight', min:40,max:140,step:5,value:70,decimals:0,suffix:'kg', onChange:()=>{ caseVdCtrl.refreshForWeight(); caseClCtrl.refreshForWeight(); renderCase(); }});
-const caseDoseCtrl = makeSliderControl(caseControlsDiv, {label:'Dose', min:500,max:3000,step:250,value:1500,decimals:0,suffix:'mg', onChange:renderCase});
-const caseVdCtrl = makeVdControl(caseControlsDiv, ()=>caseWtCtrl.getValue(), renderCase);
+const caseWtCtrl = makeWeightControl(caseControlsDiv, ()=>{ caseDoseCtrl.refreshForWeight(); caseVdCtrl.refreshForWeight(); caseClCtrl.refreshForWeight(); renderCase(); });
+const caseDoseCtrl = makeDoseControl(caseControlsDiv, ()=>caseWtCtrl.getKg(), renderCase, 1500);
+const caseVdCtrl = makeVdControl(caseControlsDiv, ()=>caseWtCtrl.getKg(), renderCase);
 // Default the case Cl to 25 mL/min (post-AKI) to match the scenario narrative.
-const caseClCtrl = makeClControl(caseControlsDiv, ()=>caseWtCtrl.getValue(), renderCase, 25);
-const caseTauCtrl = makeSliderControl(caseControlsDiv, {label:'Dosing Interval (τ)', min:6,max:48,step:6,value:12,decimals:0,suffix:'h', helpText:'Used for AUC₂₄/MIC, assuming steady state', onChange:renderCase});
-const caseMicCtrl = makeSliderControl(caseControlsDiv, {label:'MIC', min:0.25,max:4,step:0.25,value:1,decimals:2,suffix:'mg/L', helpText:'Default 1 mg/L per 2020 guideline', onChange:renderCase});
+const caseClCtrl = makeClControl(caseControlsDiv, ()=>caseWtCtrl.getKg(), renderCase, 25);
+const caseWindowCtrl = makeTherapeuticWindowControl(caseControlsDiv, (factor)=>{
+  if(factor){ caseRuleMgr.rescaleConcentrationUnits(factor); }
+  renderCase();
+});
+
+const caseRuleMgr = createRuleManager('caseRules', ()=>{
+  const unit = caseWindowCtrl.getUnit();
+  return {
+    r: computePK(caseDoseCtrl.getAbsoluteMg(), caseVdCtrl.getAbsoluteL(), caseClCtrl.getAbsoluteMlMin()),
+    concScale: unit==='ng/mL' ? 1000 : 1,
+    concUnit: unit,
+    mec: caseWindowCtrl.getMec(),
+    mtc: caseWindowCtrl.getMtc()
+  };
+}, [
+  {param:'ct', t:12, lower:caseWindowCtrl.getMec(), upper:caseWindowCtrl.getMtc()}
+]);
 
 let caseScaleMode = 'linear';
 document.querySelectorAll('#caseScaleToggle .unit-btn').forEach(btn=>{
@@ -904,21 +1222,20 @@ const caseTimeCtrl = makeSliderControl(document.getElementById('caseTimeRangeSlo
 });
 
 function renderCase(){
-  const r = computePK(caseDoseCtrl.getValue(), caseVdCtrl.getAbsoluteL(), caseClCtrl.getAbsoluteMlMin());
-  document.getElementById('caseC0').textContent = r.C0.toFixed(1);
+  const r = computePK(caseDoseCtrl.getAbsoluteMg(), caseVdCtrl.getAbsoluteL(), caseClCtrl.getAbsoluteMlMin());
+  const unit = caseWindowCtrl.getUnit();
+  const scale = unit==='ng/mL' ? 1000 : 1;
+  const decimals = unit==='ng/mL' ? 0 : 2;
+  const aucUnit = unit==='mg/L' ? 'mg·h/L' : 'ng·h/mL';
+
+  document.getElementById('caseC0').textContent = (r.C0*scale).toFixed(decimals);
   document.getElementById('caseThalf').textContent = r.thalf.toFixed(1);
-  document.getElementById('caseAuc').textContent = r.auc.toFixed(0);
-  document.getElementById('caseTrough').textContent = r.trough12.toFixed(1);
+  document.getElementById('caseAuc').textContent = (r.auc*scale).toFixed(decimals);
+  document.getElementById('caseC0Unit').textContent = unit;
+  document.getElementById('caseAucUnit').textContent = aucUnit;
 
-  const {auc24, ratio} = computeAucMic(r.auc, caseTauCtrl.getValue(), caseMicCtrl.getValue());
-  document.getElementById('caseAuc24').textContent = auc24.toFixed(0);
-  document.getElementById('caseAucMic').textContent = ratio.toFixed(0);
-  const aucStatus = describeAucMic(ratio);
-  const caseAucPanel = document.getElementById('caseAucPanel');
-  caseAucPanel.className = 'panel warning' + (aucStatus.ok ? ' safe' : '');
-  document.getElementById('caseAucFlagText').textContent = aucStatus.text;
-
-  renderChart(document.getElementById('caseSvg'), r, null, caseScaleMode, caseTimeCtrl.getValue());
+  caseRuleMgr.render();
+  renderChart(document.getElementById('caseSvg'), r, null, caseScaleMode, caseTimeCtrl.getValue(), scale, unit, caseWindowCtrl.getMec(), caseWindowCtrl.getMtc());
 }
 renderCase();
 
@@ -1132,8 +1449,8 @@ function checkScenarioAnswer(qIndex){
 function loadScenarioTarget(targetIndex){
   const scenario = SCENARIOS[currentScenarioIndex];
   const vals = scenario.loadTargets[targetIndex].get(currentDraw);
-  caseWtCtrl.setValue(vals.weight);
-  caseDoseCtrl.setValue(vals.dose);
+  caseWtCtrl.setKg(vals.weight);
+  caseDoseCtrl.setAbsValue(vals.dose);
   caseVdCtrl.setPerKgValue(vals.vdKg);
   caseClCtrl.setAbsValue(vals.clMlMin);
   renderCase();
