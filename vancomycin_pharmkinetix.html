@@ -83,11 +83,11 @@
 
   /* ---- Reusable control widget ---- */
   .ctrl{}
-  .param-box{border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:14px; background:#fff; box-shadow:0 1px 2px rgba(31,36,48,0.05);}
+  .param-box{border:1px solid var(--line); border-radius:10px; padding:11px 14px; margin-bottom:10px; background:#fff; box-shadow:0 1px 2px rgba(31,36,48,0.05);}
   #caseControls{display:grid; grid-template-columns:1fr 1fr; column-gap:22px;}
   @media(max-width:600px){#caseControls{grid-template-columns:1fr;}}
   .ctrl-label-row{display:flex; justify-content:space-between; align-items:baseline; font-weight:700; font-size:0.98rem; margin-bottom:6px;}
-  .ctrl-value{font-family:'Atkinson Hyperlegible Mono', monospace; color:var(--crimson); font-weight:700;}
+  .ctrl-header-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
   .unit-toggle{display:inline-flex; gap:4px; margin-bottom:6px;}
   .unit-btn{
     font-family:inherit; font-size:0.84rem; font-weight:700; padding:4px 11px; border-radius:12px;
@@ -119,10 +119,25 @@
     box-shadow:0 0 0 1.5px var(--crimson), 0 1px 3px rgba(31,36,48,0.25);
     cursor:pointer;
   }
-  .ctrl-bottom-row{display:flex; align-items:center; gap:10px; margin-top:6px; flex-wrap:wrap;}
-  .ctrl-number{font-family:'Atkinson Hyperlegible Mono', monospace; font-size:0.94rem; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:96px;}
-  .range-edit{font-size:0.84rem; color:var(--ink-soft); display:flex; align-items:center; gap:5px;}
-  .range-edit input{font-family:'Atkinson Hyperlegible Mono', monospace; font-size:0.84rem; width:62px; padding:4px 6px; border:1px solid var(--line); border-radius:5px;}
+  /* Value chip: the single place a slider's value is shown/edited (no
+     separate badge above the slider — that was redundant with this). */
+  .value-input-row{display:flex; align-items:center; gap:12px; margin-top:8px; flex-wrap:wrap;}
+  .value-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    background:#F5F6F7; border:1px solid var(--line); border-radius:8px;
+    padding:6px 10px;
+  }
+  .value-chip input[type=number]{
+    border:none; background:transparent; outline:none;
+    font-family:'Atkinson Hyperlegible Mono', monospace; font-size:1rem; font-weight:700; color:var(--ink);
+    width:64px; padding:0;
+  }
+  .value-chip .input-unit{color:var(--ink-soft); font-size:0.88rem; font-weight:600;}
+  /* Range editing stays out of the way until someone actually wants it. */
+  .range-details{font-size:0.84rem; color:var(--ink-soft);}
+  .range-details summary{cursor:pointer; user-select:none;}
+  .range-details .range-edit-inline{display:inline-flex; align-items:center; gap:5px; margin-left:4px;}
+  .range-details .range-edit-inline input{font-family:'Atkinson Hyperlegible Mono', monospace; font-size:0.84rem; width:60px; padding:4px 6px; border:1px solid var(--line); border-radius:5px;}
   .sub{color:var(--ink-soft); font-size:0.86rem; margin-top:4px;}
 
   .ref-chip{
@@ -150,6 +165,8 @@
   .out-grid.centered .out-card{text-align:center;}
   .out-card{background:#fff; border-radius:10px; padding:10px 12px; border:1px solid #CFEBDA;}
   .out-card .label{font-size:0.8rem; color:var(--ink-soft);}
+  .out-card .value-row{display:flex; align-items:baseline; gap:5px;}
+  .out-grid.centered .out-card .value-row{justify-content:center;}
   .out-card .value{font-family:'Atkinson Hyperlegible Mono', monospace; font-size:1.2rem; font-weight:700; color:var(--sage);}
   .out-card .unit{font-size:0.8rem; color:var(--ink-soft);}
 
@@ -283,10 +300,10 @@
         <div class="panel outputs">
           <h2><span class="dot"></span>Live Outputs</h2>
           <div class="out-grid">
-            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="outC0">--</div><div class="unit" id="outC0Unit">mg/L</div></div>
-            <div class="out-card"><div class="label">K</div><div class="value mono" id="outKe">--</div><div class="unit">h⁻¹</div></div>
-            <div class="out-card"><div class="label">t½</div><div class="value mono" id="outThalf">--</div><div class="unit">hours</div></div>
-            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="outAuc">--</div><div class="unit" id="outAucUnit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">C₀</div><div class="value-row"><span class="value mono" id="outC0">--</span><span class="unit" id="outC0Unit">mg/L</span></div></div>
+            <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value mono" id="outKe">--</span><span class="unit">h⁻¹</span></div></div>
+            <div class="out-card"><div class="label">t½</div><div class="value-row"><span class="value mono" id="outThalf">--</span><span class="unit">hours</span></div></div>
+            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value mono" id="outAuc">--</span><span class="unit" id="outAucUnit">mg·h/L</span></div></div>
             </div>
         </div>
 
@@ -330,9 +347,9 @@
         </div>
         <div class="panel outputs">
           <div class="out-grid centered">
-            <div class="out-card"><div class="label">C₀</div><div class="value mono" id="caseC0">--</div><div class="unit" id="caseC0Unit">mg/L</div></div>
-            <div class="out-card"><div class="label">t½</div><div class="value mono" id="caseThalf">--</div><div class="unit">hours</div></div>
-            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value mono" id="caseAuc">--</div><div class="unit" id="caseAucUnit">mg·h/L</div></div>
+            <div class="out-card"><div class="label">C₀</div><div class="value-row"><span class="value mono" id="caseC0">--</span><span class="unit" id="caseC0Unit">mg/L</span></div></div>
+            <div class="out-card"><div class="label">t½</div><div class="value-row"><span class="value mono" id="caseThalf">--</span><span class="unit">hours</span></div></div>
+            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value mono" id="caseAuc">--</span><span class="unit" id="caseAucUnit">mg·h/L</span></div></div>
             </div>
         </div>
         <div class="panel sim">
@@ -379,24 +396,32 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
 // min/max/step fields. Returns getters/setters so callers can read the value,
 // react to changes, or reprogram the control (used when switching Vd/Cl units).
 function makeSliderControl(container, cfg){
-  // cfg: {label, min, max, step, value, decimals, suffix, onChange, boxed}
+  // cfg: {label, min, max, step, value, decimals, suffix, onChange, boxed, compact}
   // boxed defaults to true (gives the control its own outlined card); pass
-  // boxed:false when nesting inside a control that already draws its own box
-  // (e.g. the Vd/Cl unit-toggle controls).
+  // boxed:false when nesting inside a control that already draws its own box.
+  // compact:true skips this control's own label row entirely — used when the
+  // caller (e.g. makeWeightControl) builds its own label+toggle row instead.
+  // Layout: label row, then slider, then a single bordered input+unit "chip"
+  // (the only place the value is shown — no separate value badge above the
+  // slider, which was redundant with the input itself). Min/max editing is
+  // tucked behind a native <details> disclosure so it doesn't clutter the
+  // box unless someone actually wants to change the bounds.
   const wrap = document.createElement('div');
   wrap.className = cfg.boxed===false ? 'ctrl' : 'ctrl param-box';
   wrap.innerHTML = `
-    <div class="ctrl-label-row">
-      <span>${cfg.label}</span>
-      <span class="ctrl-value mono">${cfg.value.toFixed(cfg.decimals)} ${cfg.suffix}</span>
-    </div>
+    ${cfg.compact ? '' : `<div class="ctrl-label-row"><span>${cfg.label}</span></div>`}
     <input type="range" class="s-slider" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}">
-    <div class="ctrl-bottom-row">
-      <input type="number" class="ctrl-number s-number" step="${cfg.step}" value="${cfg.value}">
-      <span class="range-edit">Range:
-        <input type="number" class="s-min" value="${cfg.min}"> –
-        <input type="number" class="s-max" value="${cfg.max}">
+    <div class="value-input-row">
+      <span class="value-chip">
+        <input type="number" class="s-number" step="${cfg.step}" value="${cfg.value}">
+        <span class="input-unit">${cfg.suffix}</span>
       </span>
+      <details class="range-details">
+        <summary>Edit range</summary>
+        <span class="range-edit-inline">
+          <input type="number" class="s-min" value="${cfg.min}"> – <input type="number" class="s-max" value="${cfg.max}">
+        </span>
+      </details>
     </div>
     ${cfg.helpText ? `<div class="sub">${cfg.helpText}</div>` : ''}
   `;
@@ -404,18 +429,16 @@ function makeSliderControl(container, cfg){
 
   const slider = wrap.querySelector('.s-slider');
   const number = wrap.querySelector('.s-number');
-  const valueDisp = wrap.querySelector('.ctrl-value');
+  const unitSpan = wrap.querySelector('.input-unit');
   const minInput = wrap.querySelector('.s-min');
   const maxInput = wrap.querySelector('.s-max');
-  let decimals = cfg.decimals, suffix = cfg.suffix;
+  let suffix = cfg.suffix;
   let current = cfg.value;
 
-  function setDisplay(v){ valueDisp.textContent = `${v.toFixed(decimals)} ${suffix}`; }
   function setValue(v, skipCallback){
     current = v;
     slider.value = v;
     number.value = v;
-    setDisplay(v);
     if(!skipCallback && cfg.onChange) cfg.onChange(v);
   }
   slider.addEventListener('input', ()=> setValue(parseFloat(slider.value)));
@@ -442,7 +465,7 @@ function makeSliderControl(container, cfg){
   return {
     getValue: ()=>current,
     setValue,
-    setLabelUnit: (newDecimals,newSuffix)=>{ decimals=newDecimals; suffix=newSuffix; setDisplay(current); },
+    setLabelUnit: (newDecimals,newSuffix)=>{ suffix=newSuffix; unitSpan.textContent = suffix; },
     setRange: (lo,hi,step,newVal)=>{
       slider.min=lo; slider.max=hi; slider.step=step; number.step=step;
       minInput.value=lo; maxInput.value=hi;
@@ -460,10 +483,12 @@ function makeSliderControl(container, cfg){
 function makeWeightControl(container, onChange){
   const wrap = document.createElement('div');
   wrap.className = 'param-box';
-  wrap.innerHTML = `<div class="ctrl-label-row"><span>Weight</span></div>
-    <div class="unit-toggle">
-      <button type="button" class="unit-btn active" data-unit="kg">kg</button>
-      <button type="button" class="unit-btn" data-unit="lbs">lbs</button>
+  wrap.innerHTML = `<div class="ctrl-label-row">
+      <span>Weight</span>
+      <span class="unit-toggle" style="margin-bottom:0;">
+        <button type="button" class="unit-btn active" data-unit="kg">kg</button>
+        <button type="button" class="unit-btn" data-unit="lbs">lbs</button>
+      </span>
     </div>
     <div class="wt-slot"></div>`;
   container.appendChild(wrap);
@@ -478,7 +503,7 @@ function makeWeightControl(container, onChange){
 
   const ctrl = makeSliderControl(slot, {
     label:'', min:RANGES.kg.min, max:RANGES.kg.max, step:RANGES.kg.step,
-    value:70, decimals:RANGES.kg.decimals, suffix:'kg', boxed:false,
+    value:70, decimals:RANGES.kg.decimals, suffix:'kg', boxed:false, compact:true,
     onChange:()=>onChange()
   });
 
@@ -494,7 +519,6 @@ function makeWeightControl(container, onChange){
       const r = RANGES[unit];
       ctrl.setLabelUnit(r.decimals, unit);
       ctrl.setRange(r.min, r.max, r.step, Math.round(newVal));
-      onChange();
     });
   });
 
@@ -517,10 +541,12 @@ function makeDoseControl(container, weightGetter, onChange, initialMg){
   const startVal = initialMg || 1500;
   const wrap = document.createElement('div');
   wrap.className = 'param-box';
-  wrap.innerHTML = `<div class="ctrl-label-row"><span>Dose</span></div>
-    <div class="unit-toggle">
-      <button type="button" class="unit-btn active" data-mode="abs">mg</button>
-      <button type="button" class="unit-btn" data-mode="perkg">mg/kg</button>
+  wrap.innerHTML = `<div class="ctrl-label-row">
+      <span>Dose</span>
+      <span class="unit-toggle" style="margin-bottom:0;">
+        <button type="button" class="unit-btn active" data-mode="abs">mg</button>
+        <button type="button" class="unit-btn" data-mode="perkg">mg/kg</button>
+      </span>
     </div>
     <div class="dose-slot"></div>`;
   container.appendChild(wrap);
@@ -529,7 +555,7 @@ function makeDoseControl(container, weightGetter, onChange, initialMg){
   let absoluteMg = startVal;
 
   const ctrl = makeSliderControl(slot, {
-    label:'', min:500, max:3000, step:250, value:startVal, decimals:0, suffix:'mg', boxed:false,
+    label:'', min:500, max:3000, step:250, value:startVal, decimals:0, suffix:'mg', boxed:false, compact:true,
     onChange:(v)=>{ absoluteMg = (mode==='abs') ? v : v*weightGetter(); onChange(); }
   });
 
@@ -566,10 +592,12 @@ function makeDoseControl(container, weightGetter, onChange, initialMg){
 function makeVdControl(container, weightGetter, onChange){
   const wrap = document.createElement('div');
   wrap.className = 'param-box';
-  wrap.innerHTML = `<div class="ctrl-label-row"><span>Volume of Distribution (V<sub>d</sub>)</span></div>
-    <div class="unit-toggle">
-      <button type="button" class="unit-btn active" data-mode="perkg">L/kg</button>
-      <button type="button" class="unit-btn" data-mode="abs">L (absolute)</button>
+  wrap.innerHTML = `<div class="ctrl-label-row">
+      <span>Volume of Distribution (V<sub>d</sub>)</span>
+      <span class="unit-toggle" style="margin-bottom:0;">
+        <button type="button" class="unit-btn active" data-mode="perkg">L/kg</button>
+        <button type="button" class="unit-btn" data-mode="abs">L</button>
+      </span>
     </div>
     <div class="vd-slot"></div>`;
   container.appendChild(wrap);
@@ -578,7 +606,7 @@ function makeVdControl(container, weightGetter, onChange){
   let absoluteL = 0.70*weightGetter();
 
   const ctrl = makeSliderControl(slot, {
-    label:'', min:0.30, max:1.20, step:0.01, value:0.70, decimals:2, suffix:'L/kg', boxed:false,
+    label:'', min:0.30, max:1.20, step:0.01, value:0.70, decimals:2, suffix:'L/kg', boxed:false, compact:true,
     helpText:'↑ in sepsis/burns · ↓ in dehydration',
     onChange:(v)=>{ absoluteL = (mode==='perkg') ? v*weightGetter() : v; onChange(); }
   });
@@ -621,13 +649,15 @@ function makeClControl(container, weightGetter, onChange, initialMlMin){
   const wrap = document.createElement('div');
   wrap.className = 'param-box';
   wrap.innerHTML = `<div class="ctrl-label-row"><span>Clearance (Cl)</span></div>
-    <div class="unit-toggle">
-      <button type="button" class="unit-btn active" data-unit="mlmin">mL/min</button>
-      <button type="button" class="unit-btn" data-unit="lh">L/h</button>
-    </div>
-    <div class="unit-toggle">
-      <button type="button" class="unit-btn active" data-scale="abs">Absolute</button>
-      <button type="button" class="unit-btn" data-scale="perkg">Per kg</button>
+    <div class="ctrl-header-right" style="margin-bottom:8px;">
+      <span class="unit-toggle" style="margin-bottom:0;">
+        <button type="button" class="unit-btn active" data-unit="mlmin">mL/min</button>
+        <button type="button" class="unit-btn" data-unit="lh">L/h</button>
+      </span>
+      <span class="unit-toggle" style="margin-bottom:0;">
+        <button type="button" class="unit-btn active" data-scale="abs">Total</button>
+        <button type="button" class="unit-btn" data-scale="perkg">Per kg</button>
+      </span>
     </div>
     <div class="cl-slot"></div>`;
   container.appendChild(wrap);
@@ -656,7 +686,7 @@ function makeClControl(container, weightGetter, onChange, initialMlMin){
 
   const ctrl = makeSliderControl(slot, {
     label:'', min:RANGES.mlmin_abs.min, max:RANGES.mlmin_abs.max, step:RANGES.mlmin_abs.step,
-    value:startVal, decimals:RANGES.mlmin_abs.decimals, suffix:RANGES.mlmin_abs.suffix, boxed:false,
+    value:startVal, decimals:RANGES.mlmin_abs.decimals, suffix:RANGES.mlmin_abs.suffix, boxed:false, compact:true,
     helpText:'Tracks renal function (≈ CrCl)',
     onChange:(v)=>{ absoluteMlMin = fromDisplay(v); onChange(); }
   });
@@ -915,10 +945,12 @@ attachHover(document.getElementById('caseSvg'));
 function makeTherapeuticWindowControl(container, onChange){
   const wrap = document.createElement('div');
   wrap.className = 'param-box';
-  wrap.innerHTML = `<div class="ctrl-label-row"><span>Therapeutic Window (MEC–MTC)</span></div>
-    <div class="unit-toggle">
-      <button type="button" class="unit-btn active" data-unit="mg/L">mg/L</button>
-      <button type="button" class="unit-btn" data-unit="ng/mL">ng/mL</button>
+  wrap.innerHTML = `<div class="ctrl-label-row">
+      <span>Therapeutic Window (MEC–MTC)</span>
+      <span class="unit-toggle" style="margin-bottom:0;">
+        <button type="button" class="unit-btn active" data-unit="mg/L">mg/L</button>
+        <button type="button" class="unit-btn" data-unit="ng/mL">ng/mL</button>
+      </span>
     </div>
     <div class="mec-slot"></div>
     <div class="mtc-slot"></div>`;
