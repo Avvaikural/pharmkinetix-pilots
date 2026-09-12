@@ -1,0 +1,2199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PharmKinetix — Module 2: Oral Absorption Kinetics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Atkinson+Hyperlegible+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<style>
+  :root{
+    --crimson:#981E32;
+    --crimson-dark:#711526;
+    --gray:#5E6A71;
+    --gray-dark:#3f484d;
+    --gray-light:#eef0f1;
+    --ink:#22303a;
+    --paper:#fbfaf8;
+    --line:#d9d5cc;
+    --safe:#3f7a52;
+    --safe-bg:#eaf3ec;
+    --warn:#981E32;
+    --warn-bg:#fbeceb;
+    --tab-tint:#f6f5f3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Atkinson Hyperlegible","Segoe UI",Arial,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  code, .mono{ font-family:"Atkinson Hyperlegible Mono", monospace; }
+
+  .sticky-top{ position:sticky; top:0; z-index:20; }
+  header{
+    background:var(--crimson);
+    color:white;
+    padding:18px 28px;
+  }
+  header .header-row{ display:flex; justify-content:space-between; align-items:center; gap:20px; flex-wrap:wrap; }
+  header .header-logo{ height:34px; width:auto; flex-shrink:0; }
+  header .eyebrow{ font-size:0.78rem; color:#f1cdd4; margin:0 0 2px; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; }
+  header h1{ margin:0; font-size:1.35rem; }
+  header p{ margin:4px 0 0; font-size:0.88rem; color:#f3dde1; max-width:80ch; }
+
+  nav.tabs{
+    display:flex;
+    background:var(--gray-dark);
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    flex:0 0 auto;
+    padding:12px 20px;
+    border:none;
+    background:transparent;
+    color:#d8dde0;
+    font-family:inherit;
+    font-size:0.92rem;
+    cursor:pointer;
+    border-bottom:3px solid transparent;
+  }
+  nav.tabs button:hover{ background:rgba(255,255,255,0.06); }
+  nav.tabs button.active{
+    background:var(--tab-tint);
+    color:var(--crimson-dark);
+    font-weight:700;
+    border-bottom:3px solid var(--crimson);
+  }
+
+  main{ padding:24px 28px 60px; max-width:1180px; margin:0 auto; }
+  section.tabpanel{ display:none; background:var(--tab-tint); border-radius:10px; padding:22px; }
+  section.tabpanel.active{ display:block; }
+
+  h2{ color:var(--crimson-dark); font-size:1.15rem; margin-top:0; }
+  h3{ color:var(--gray-dark); font-size:1rem; margin-bottom:6px; }
+  p{ line-height:1.55; }
+
+  .card{
+    background:white;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 18px;
+    margin-bottom:18px;
+  }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+
+  /* ---- Theory tab: variable key, two-column flip-flop layout ---- */
+  .var-key{
+    display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; margin-top:10px;
+    padding:12px 16px; background:var(--gray-light); border-radius:8px; font-size:0.92rem;
+  }
+  .var-key-sym{ display:inline-block; min-width:2.4em; font-weight:700; color:var(--crimson-dark); font-family:"Atkinson Hyperlegible Mono", monospace; }
+  @media (max-width:640px){ .var-key{ grid-template-columns:1fr; } }
+  .ka-k-table-wrap{ max-width:640px; margin:0 auto; }
+  .ka-k-table{ font-size:0.95rem; width:100%; }
+  .ka-k-table th, .ka-k-table td{ padding:7px 10px; }
+  .theory-flip-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+  .theory-flip-text p{ margin:0 0 10px; }
+  @media (max-width:800px){ .theory-flip-grid{ grid-template-columns:1fr; } }
+  .grid-sim{ display:grid; grid-template-columns:minmax(360px,1fr) 420px; gap:20px; align-items:start; }
+  @media (max-width:900px){ .grid2, .grid-sim{ grid-template-columns:1fr; } }
+
+  table{ border-collapse:collapse; width:100%; font-size:0.87rem; }
+  th, td{ border:1px solid var(--line); padding:6px 8px; text-align:center; }
+  th{ background:#f4f2ec; }
+  table.compact td, table.compact th{ padding:4px 6px; font-size:0.82rem; }
+  input.cell{
+    width:64px; text-align:center; border:1px solid var(--line); border-radius:4px; padding:3px;
+    font-family:inherit; font-size:0.85rem;
+  }
+  input.cell.correct{ background:var(--safe-bg); border-color:var(--safe); }
+  input.cell.incorrect{ background:var(--warn-bg); border-color:var(--warn); }
+
+  .slider-row{ margin-bottom:14px; }
+  .slider-row label{ display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:4px; }
+  .slider-row label span.val{ font-weight:700; color:var(--crimson-dark); }
+  input[type=range]{ width:100%; accent-color:var(--crimson); }
+
+  .btn{
+    padding:8px 14px; border-radius:7px; border:1.5px solid var(--crimson);
+    background:white; color:var(--crimson-dark); font-family:inherit; font-size:0.88rem; cursor:pointer;
+  }
+  .btn:hover{ background:#fbeceb; }
+  .btn.primary{ background:var(--crimson); color:white; }
+  .btn.primary:hover{ background:var(--crimson-dark); }
+  .btn.small{ padding:5px 10px; font-size:0.8rem; }
+  .btn-row{ display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+
+  .readout{
+    background:var(--gray-light); border-radius:8px; padding:10px 12px; font-size:0.9rem; line-height:1.6;
+  }
+  .readout b{ color:var(--crimson-dark); }
+
+  .pill{
+    display:inline-block; padding:2px 9px; border-radius:99px; font-size:0.78rem; font-weight:700;
+    background:var(--gray-light); color:var(--gray-dark); margin-right:6px;
+  }
+  .step-label{ font-size:0.78rem; letter-spacing:0.02em; color:var(--crimson-dark); font-weight:700; margin-bottom:4px; }
+  .hint{ font-size:0.8rem; color:#7a746a; font-style:italic; }
+
+  .mcq{ margin-bottom:16px; }
+  .mcq .opt{
+    display:block; width:100%; text-align:left; padding:8px 12px; margin:4px 0;
+    border:1.5px solid var(--line); border-radius:7px; background:white; cursor:pointer; font-family:inherit; font-size:0.9rem;
+  }
+  .mcq .opt:hover{ border-color:var(--crimson); }
+  .mcq .opt.correct{ border-color:var(--safe); background:var(--safe-bg); }
+  .mcq .opt.incorrect{ border-color:var(--warn); background:var(--warn-bg); }
+  .mcq .feedback{ margin-top:6px; font-size:0.88rem; padding:8px 10px; border-radius:7px; }
+  .mcq .feedback.correct{ background:var(--safe-bg); color:var(--safe); }
+  .mcq .feedback.incorrect{ background:var(--warn-bg); color:var(--warn); }
+
+  svg.plot{ width:100%; height:auto; background:white; border-radius:8px; }
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:0.82rem; margin-top:6px; color:var(--gray); }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .legend i{ width:16px; height:3px; display:inline-block; border-radius:2px; }
+  .swatch{ width:14px; height:3px; display:inline-block; border-radius:2px; }
+
+  /* ---- Ported from Module 1: two-column layout, reusable slider+number control ---- */
+  .twocol{ display:grid; grid-template-columns:380px 1fr; gap:20px; align-items:start; }
+  @media (max-width:860px){ .twocol{ grid-template-columns:1fr; } }
+  .col{ max-height:none; }
+
+  .param-box{ border:1px solid var(--line); border-radius:10px; padding:11px 14px; margin-bottom:10px; background:#fff; box-shadow:0 1px 2px rgba(31,36,48,0.05); }
+  .ctrl-label-row{ display:flex; justify-content:space-between; align-items:baseline; font-weight:700; font-size:0.92rem; margin-bottom:6px; }
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:20px; cursor:pointer; background:transparent; }
+  input[type=range]::-webkit-slider-runnable-track{ height:6px; background:#AEB4B7; border-radius:3px; }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%;
+    background:var(--crimson); border:3px solid #fff;
+    box-shadow:0 0 0 1.5px var(--crimson), 0 1px 3px rgba(31,36,48,0.25);
+    margin-top:-6px; cursor:pointer;
+  }
+  input[type=range]::-moz-range-track{ height:6px; background:#AEB4B7; border-radius:3px; }
+  input[type=range]::-moz-range-thumb{
+    width:18px; height:18px; border-radius:50%; background:var(--crimson); border:3px solid #fff;
+    box-shadow:0 0 0 1.5px var(--crimson), 0 1px 3px rgba(31,36,48,0.25); cursor:pointer;
+  }
+  .value-input-row{ display:flex; align-items:center; gap:12px; margin-top:8px; flex-wrap:wrap; }
+  .value-chip{ display:inline-flex; align-items:center; gap:6px; background:#F5F6F7; border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+  .value-chip input[type=number]{
+    border:none; background:transparent; outline:none; font-family:"Atkinson Hyperlegible Mono", monospace;
+    font-size:1rem; font-weight:700; color:var(--ink); width:64px; padding:0;
+  }
+  .value-chip .input-unit{ color:#7a746a; font-size:0.85rem; font-weight:600; }
+  .range-details{ font-size:0.8rem; color:#7a746a; }
+  .range-details summary{ cursor:pointer; user-select:none; }
+  .range-details .range-edit-inline{ display:inline-flex; align-items:center; gap:5px; margin-left:4px; }
+  .range-details .range-edit-inline input{ font-family:"Atkinson Hyperlegible Mono", monospace; font-size:0.8rem; width:56px; padding:4px 6px; border:1px solid var(--line); border-radius:5px; }
+
+  .ref-summary{
+    background:#fff; border:1px solid var(--gray); border-radius:10px; padding:8px 12px; margin-top:8px; max-width:280px;
+  }
+  .ref-summary-header{ display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; font-weight:700; color:var(--gray); margin-bottom:4px; }
+  .ref-summary-header button{ background:none; border:none; cursor:pointer; color:var(--crimson); font-weight:700; font-size:0.78rem; padding:0; }
+  .ref-summary-grid{ display:grid; grid-template-columns:1fr 1fr; gap:2px 10px; font-size:0.8rem; color:var(--ink); }
+  .ref-summary-grid b{ color:var(--gray-dark); font-family:"Atkinson Hyperlegible Mono", monospace; }
+  .chart-wrap{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:4px; }
+  .btn.small.active{ background:var(--crimson); color:white; border-color:var(--crimson); }
+  .card.outputs{ background:var(--safe-bg); border-color:#bfe3ce; }
+  .card.outputs.ref-outputs{ background:var(--gray-light); border-color:#c7cdd1; }
+  .card.outputs.ref-outputs .out-card{ border-color:#c7cdd1; }
+  .card.outputs.ref-outputs .out-card .value{ color:var(--gray-dark); }
+
+  /* ---- More Module-1 parity: weight/unit toggles, Live Outputs boxes, monitoring rules ---- */
+  .ctrl-header-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .unit-toggle{ display:inline-flex; gap:4px; margin-bottom:6px; }
+  .unit-btn{
+    font-family:inherit; font-size:0.78rem; font-weight:700; padding:3px 9px; border-radius:12px;
+    border:1px solid var(--gray); background:#fff; color:var(--crimson); cursor:pointer;
+  }
+  .unit-btn.active{ background:var(--crimson); color:#fff; border-color:var(--crimson); }
+  .sub-help{ font-size:0.78rem; color:#7a746a; margin-top:4px; }
+
+  .out-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; }
+  .out-card{ background:#fff; border-radius:10px; padding:10px 12px; border:1px solid #CFEBDA; }
+  .out-card .label{ font-size:0.8rem; color:#5E6A71; }
+  .out-card .value-row{ display:flex; align-items:baseline; gap:5px; }
+  .out-card .value{ font-family:"Atkinson Hyperlegible Mono", monospace; font-size:1.2rem; font-weight:700; color:var(--safe); }
+  .out-card .unit{ font-size:0.8rem; color:#5E6A71; }
+
+  .rule-panel{ border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; background:white; }
+  .rule-panel.safe{ background:var(--safe-bg); border-color:#bfe3ce; }
+  .rule-panel.warn{ background:var(--warn-bg); border-color:#e3b9c1; }
+  .rule-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .rule-row select{ font-family:inherit; font-size:0.85rem; padding:5px 7px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .rule-inline{ display:inline-flex; align-items:center; gap:5px; font-size:0.82rem; color:#5E6A71; }
+  .rule-inline input{
+    font-family:"Atkinson Hyperlegible Mono", monospace; font-size:0.82rem; padding:4px 6px;
+    border:1px solid var(--line); border-radius:6px; width:64px;
+  }
+  .rule-row button{ padding:4px 9px; font-size:0.78rem; }
+
+  .ct-table{ font-size:0.82rem; width:100%; }
+  .ct-table th{ font-size:0.78rem; position:sticky; top:0; background:#f4f2ec; }
+  .ct-table-wrap{ max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; }
+
+  /* ---- Method of Residuals: sub-tabs, master table, dataset/upload controls ---- */
+  .mor-side-panel{ font-size:1rem; }
+  .mor-header-bar{ padding:14px 18px; }
+  .mor-toolbar{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  .mor-subtabs{ display:flex; gap:8px; flex-wrap:wrap; }
+  .mor-subtabs button{
+    width:170px; padding:10px 12px; border-radius:20px; border:1.5px solid var(--line); background:#fff;
+    color:var(--gray-dark); font-family:inherit; font-size:0.92rem; font-weight:600; cursor:pointer; text-align:center;
+  }
+  .mor-subtabs button.active{ background:var(--crimson); border-color:var(--crimson); color:#fff; font-weight:700; }
+  .mor-subtabs button:disabled{ opacity:0.45; cursor:not-allowed; }
+  #morControls .step-label{ font-size:0.95rem; margin-bottom:8px; }
+  #morControls p.hint{ font-size:0.95rem; }
+  #morControls .out-grid{ margin:10px 0 12px; }
+  #morDataPanel{ margin-top:18px; padding-top:16px; border-top:2px solid var(--line); }
+  #morDataPanel h4{ margin:0 0 8px; font-size:0.95rem; color:var(--gray-dark); }
+  table.master-table{ font-size:1rem; width:100%; }
+  table.master-table th{ font-size:0.88rem; padding:7px 8px; }
+  table.master-table td{ padding:7px 8px; }
+  table.master-table tr.row-elim{ background:#fbeceb; }
+  table.master-table tr.row-abs{ background:#eaf3ec; }
+  .mor-setup-row{ display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .mor-setup-field{ flex:1 1 150px; min-width:150px; }
+  .mor-setup-field label{ display:block; font-size:0.82rem; color:var(--gray); margin-bottom:3px; font-weight:700; }
+  .mor-setup-field select, .mor-setup-field input[type=file]{ font-family:inherit; font-size:0.9rem; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:#fff; width:100%; }
+  .mor-or{ align-self:center; color:var(--gray); font-size:0.85rem; font-weight:700; padding-top:20px; }
+  .mor-upload-status{ font-size:0.85rem; margin-top:4px; color:var(--gray); }
+  .mor-upload-status.error{ color:var(--warn); }
+  .mor-upload-status.success{ color:var(--safe); }
+  #morDataPanel table.compact{ font-size:0.92rem; }
+  #morDataPanel table.compact th{ font-size:0.85rem; }
+</style>
+</head>
+
+<body data-tab="theory">
+
+<div class="sticky-top">
+<header>
+  <div class="header-row">
+    <div>
+      <p class="eyebrow">PharmKinetix · Module 2</p>
+      <h1>Oral Absorption Kinetics</h1>
+      <p>How dose, k<sub>a</sub>, and K shape C<sub>max</sub>, t<sub>max</sub>, and AUC after oral administration, the method of residuals, and — finally — flip-flop kinetics.</p>
+    </div>
+    <img class="header-logo" alt="Washington State University" src="data:image/png;base64,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">
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="theory" class="active">Theory</button>
+  <button data-tab="sim">Simulation</button>
+  <button data-tab="mor">Method of Residuals</button>
+  <button data-tab="case">Case Studies</button>
+  <button data-tab="assess">Assessment</button>
+</nav>
+</div>
+
+<main>
+
+<!-- ================= THEORY ================= -->
+<section class="tabpanel active" id="panel-theory">
+  <h2>Theory</h2>
+
+  <div class="card">
+    <h3>One-compartment model with first-order absorption</h3>
+    <svg viewBox="0 0 680 130" style="width:100%;max-width:680px;display:block;margin:0 auto;">
+      <rect x="10" y="35" width="140" height="55" rx="8" fill="#f4f2ec" stroke="#5E6A71"/>
+      <text x="80" y="57" text-anchor="middle" font-size="15" fill="#22303a">Dosing</text>
+      <text x="80" y="74" text-anchor="middle" font-size="15" fill="#22303a">compartment</text>
+      <line x1="150" y1="62" x2="250" y2="62" stroke="#981E32" stroke-width="2.5" marker-end="url(#arrow)"/>
+      <text x="200" y="50" text-anchor="middle" font-size="16" fill="#981E32">k<tspan font-size="11" baseline-shift="sub">a</tspan></text>
+      <rect x="250" y="35" width="160" height="55" rx="8" fill="#f4f2ec" stroke="#5E6A71"/>
+      <text x="330" y="57" text-anchor="middle" font-size="15" fill="#22303a">Central</text>
+      <text x="330" y="74" text-anchor="middle" font-size="15" fill="#22303a">compartment (V<tspan font-size="11" baseline-shift="sub">d</tspan>)</text>
+      <line x1="410" y1="62" x2="510" y2="62" stroke="#981E32" stroke-width="2.5" marker-end="url(#arrow)"/>
+      <text x="460" y="50" text-anchor="middle" font-size="16" fill="#981E32">K</text>
+      <text x="524" y="67" font-size="15" fill="#22303a">elimination</text>
+      <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#981E32"/></marker></defs>
+    </svg>
+
+    <div class="readout" style="margin-top:14px; text-align:center;">
+      <div id="katexMainFormula" style="font-size:1.15rem; padding:6px 0;"></div>
+    </div>
+    <div class="var-key">
+      <div><span class="var-key-sym">C</span> plasma concentration at time <i>t</i> (mg/L)</div>
+      <div><span class="var-key-sym">F</span> bioavailability \u2014 fraction of dose absorbed</div>
+      <div><span class="var-key-sym">X<sub>0</sub></span> administered dose (mg)</div>
+      <div><span class="var-key-sym">k<sub>a</sub></span> absorption rate constant (h<sup>-1</sup>)</div>
+      <div><span class="var-key-sym">K</span> elimination rate constant (h<sup>-1</sup>)</div>
+      <div><span class="var-key-sym">V (V<sub>d</sub>)</span> volume of distribution (L)</div>
+      <div><span class="var-key-sym">t</span> time after administration (h)</div>
+    </div>
+
+    <div class="readout" style="margin-top:14px; text-align:center; display:flex; justify-content:center; gap:40px; flex-wrap:wrap;">
+      <div id="katexTmaxFormula"></div>
+      <div id="katexAucFormula"></div>
+    </div>
+    <p class="hint" style="text-align:center;">AUC is independent of k<sub>a</sub> and t<sub>max</sub>. V<sub>d</sub> and Cl are always the independent inputs; K is derived as Cl/V<sub>d</sub>. The equation is invalid if k<sub>a</sub> = K exactly (limiting form used instead).</p>
+  </div>
+
+  <div class="card">
+    <h3 style="text-align:center;">Effect of k<sub>a</sub> and K on C<sub>max</sub> and t<sub>max</sub></h3>
+    <div class="ka-k-table-wrap">
+      <div class="grid2" style="gap:32px;">
+        <div>
+          <p class="hint" style="text-align:center; margin:0 0 8px;">k<sub>a</sub> (K constant)</p>
+          <table class="compact ka-k-table"><tr><th>k<sub>a</sub></th><th>C<sub>max</sub></th><th>t<sub>max</sub></th></tr>
+          <tr><td>increase</td><td>higher</td><td>shorter</td></tr>
+          <tr><td>decrease</td><td>lower</td><td>longer</td></tr></table>
+        </div>
+        <div>
+          <p class="hint" style="text-align:center; margin:0 0 8px;">K (k<sub>a</sub> constant)</p>
+          <table class="compact ka-k-table"><tr><th>K</th><th>C<sub>max</sub></th><th>t<sub>max</sub></th></tr>
+          <tr><td>increase</td><td>lower</td><td>shorter</td></tr>
+          <tr><td>decrease</td><td>higher</td><td>longer</td></tr></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Normal vs. flip-flop kinetics</h3>
+    <div class="theory-flip-grid">
+      <div class="theory-flip-text">
+        <p>Normal kinetics: k<sub>a</sub> ≫ K — absorption is fast, elimination is rate-limiting, and the terminal log-linear slope reflects K.</p>
+        <p>Flip-flop kinetics: k<sub>a</sub> ≪ K — absorption becomes rate-limiting, and the terminal slope instead reflects k<sub>a</sub>.</p>
+        <p>Diagnosis: compare the oral terminal slope against an IV bolus reference line of true slope −K — parallel slopes confirm normal kinetics; a shallower oral slope indicates flip-flop.</p>
+        <div class="btn-row">
+          <button class="btn" id="theoryNormalBtn">Normal kinetics</button>
+          <button class="btn" id="theoryFlipBtn">Flip-flop kinetics</button>
+        </div>
+      </div>
+      <div class="theory-flip-plot">
+        <svg class="plot" id="theoryPlot" viewBox="0 0 640 360"></svg>
+        <div class="legend" id="theoryLegend"></div>
+        <p class="hint" id="theoryFigCaption">Same 250 mg dose, V<sub>d</sub> = 25 L, Cl = 2.625 L/h (K = 0.105 h⁻¹) for both routes. Oral F = 0.5, k<sub>a</sub> = 0.85 h⁻¹ (≫K).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SIMULATION ================= -->
+<section class="tabpanel" id="panel-sim">
+  <h2>Simulation</h2>
+  <p>Adjust weight, dose, F, k<sub>a</sub>, V<sub>D</sub>, and Cl (each with a slider and a matching input box, several with a per-kg toggle) and watch the curve respond live. Set the current curve as a reference to compare it against a second parameter set — e.g. Standard vs. Trial from the old Excel scenarios, or before/after a clearance-lowering drug interaction.</p>
+
+  <div class="twocol">
+    <div class="col">
+      <div class="panel card sim">
+        <h3 style="margin-top:0;">Adjust PK Parameters</h3>
+        <div id="simControls"></div>
+        <button class="btn primary" id="setRefBtn">Set as Reference</button>
+        <div id="refChipWrap"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div id="simTimeSlot"></div>
+        <div class="btn-row" id="simScaleToggle">
+          <button type="button" class="btn small active" data-scale="linear">Linear</button>
+          <button type="button" class="btn small" data-scale="log">Semilog</button>
+        </div>
+        <div class="btn-row" id="simUnitToggle">
+          <button type="button" class="btn small active" data-unit="mg/L">mg/L</button>
+          <button type="button" class="btn small" data-unit="ng/mL">ng/mL</button>
+        </div>
+        <div class="chart-wrap">
+          <svg class="plot" id="simSvg" viewBox="0 0 700 360"></svg>
+          <div class="legend">
+            <span><i style="background:#981E32"></i>Active patient</span>
+            <span id="simRefLegend" style="display:none;"><i style="border-bottom:2px dashed #5E6A71;"></i>Reference</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card outputs">
+        <h3 style="margin-top:0;">Live Outputs — Active Patient</h3>
+        <div class="out-grid" id="simOutGrid"></div>
+      </div>
+
+      <div class="card outputs ref-outputs" id="simRefOutputsCard" style="display:none;">
+        <h3 style="margin-top:0;">Live Outputs — Reference Patient</h3>
+        <div class="out-grid" id="simRefOutGrid"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Therapeutic Window &amp; Monitoring Rules</h3>
+        <p class="hint">Point any rule at C<sub>max</sub>, concentration at a specific time, or AUC, and set a target range — evaluated for the active patient, and the reference too once one is set. Useful for seeing how a clearance-lowering drug interaction shifts a patient out of range.</p>
+        <div id="simRules"></div>
+        <button class="btn small" id="simAddRuleBtn">+ Add rule</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Concentration-Time Table</h3>
+        <p class="hint">Standard timepoints out to 48 h; extends automatically if the X-axis range goes beyond that.</p>
+        <div class="ct-table-wrap">
+          <table class="ct-table" id="simCtTable"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ================= METHOD OF RESIDUALS ================= -->
+<section class="tabpanel" id="panel-mor">
+  <h2>Method of Residuals</h2>
+
+  <div class="card mor-header-bar">
+    <div class="mor-toolbar">
+      <div class="mor-subtabs" id="morSubtabs"></div>
+      <div class="btn-row" id="morUnitToggle">
+        <button type="button" class="btn small active" data-unit="mg/L">mg/L</button>
+        <button type="button" class="btn small" data-unit="ng/mL">ng/mL</button>
+      </div>
+      <button class="btn small" id="morStartOverBtn">↺ Start Over</button>
+    </div>
+    <p class="hint" id="morCaption" style="margin-top:10px; margin-bottom:0; font-size:0.95rem;">Click three points on the terminal (elimination) decline.</p>
+  </div>
+
+  <div class="grid-sim">
+    <div class="card">
+      <svg class="plot" id="morPlot" viewBox="0 0 700 460"></svg>
+    </div>
+    <div class="card mor-side-panel">
+      <div id="morControls"></div>
+      <div id="morDataPanel"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CASE STUDIES ================= -->
+<section class="tabpanel" id="panel-case">
+  <h2>Case Studies</h2>
+
+  <div class="card">
+    <h3>Case 1 — Calculate, then verify (generic scenario)</h3>
+    <p>Use the formulas first — K, t<sub>max</sub>, C<sub>max</sub>, and AUC — then use the trapezoidal method on the generated concentration-time data to independently verify your AUC. All values in mg/L.</p>
+    <div class="btn-row"><button class="btn small" id="c1GenerateBtn">↻ Generate new scenario</button></div>
+    <div class="readout" id="c1Given" style="margin:10px 0;"></div>
+
+    <h4 style="margin-bottom:6px;">Step 1 — Calculate from the equations</h4>
+    <table class="compact" id="c1FormulaTable"></table>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn primary small" id="c1CheckBtn">Check my work</button>
+      <button class="btn small" id="c1RevealBtn">Reveal correct values</button>
+    </div>
+
+    <h4 style="margin:16px 0 6px;">Step 2 — Verify AUC with the trapezoidal method</h4>
+    <p class="hint">Standard timepoints generated around this scenario's t<sub>max</sub>.</p>
+    <table class="compact" id="c1TrapTable"></table>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn primary small" id="c1TrapCheckBtn">Check my work</button>
+      <button class="btn small" id="c1TrapRevealBtn">Reveal correct values</button>
+    </div>
+    <div class="readout" id="c1TrapSummary" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <h3>Case 2 — Amoxicillin 1000 mg (watch your units)</h3>
+    <p>A 1000&nbsp;mg oral dose of amoxicillin is given. F = 0.60, k<sub>a</sub> = 0.854 h<sup>-1</sup>, V<sub>d</sub> = 26 L, Cl = 17.7 L/h — <b>all in mg/L-based units</b>. Amoxicillin concentrations are conventionally reported in <b>ng/mL</b> in the literature, so part of this case is converting your answer, not just computing it.</p>
+
+    <h4 style="margin-bottom:6px;">Step 1 — Calculate, then convert</h4>
+    <table class="compact" id="c2FormulaTable"></table>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn primary small" id="c2CheckBtn">Check my work</button>
+      <button class="btn small" id="c2RevealBtn">Reveal correct values</button>
+    </div>
+
+    <h4 style="margin:16px 0 6px;">Step 2 — Verify AUC with the trapezoidal method (ng/mL)</h4>
+    <table class="compact" id="c2TrapTable"></table>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn primary small" id="c2TrapCheckBtn">Check my work</button>
+      <button class="btn small" id="c2TrapRevealBtn">Reveal correct values</button>
+    </div>
+    <div class="readout" id="c2TrapSummary" style="margin-top:10px;"></div>
+  </div>
+</section>
+
+<!-- ================= ASSESSMENT ================= -->
+<section class="tabpanel" id="panel-assess">
+  <h2>Assessment</h2>
+  <div id="assessList"></div>
+</section>
+
+</main>
+
+<script>
+/* ============================================================
+   SHARED PK MATH
+   ============================================================ */
+function batemanC(F,X0,ka,VD,K,t){
+  if(t<=0) return 0;
+  if(Math.abs(ka-K) < 1e-6){
+    return F*X0*K*t/VD * Math.exp(-K*t);
+  }
+  return (F*X0*ka)/(VD*(ka-K)) * (Math.exp(-K*t) - Math.exp(-ka*t));
+}
+function tmaxVal(ka,K){
+  if(Math.abs(ka-K) < 1e-6) return 1/K;
+  return Math.log(ka/K)/(ka-K);
+}
+function cmaxVal(F,X0,ka,VD,K){ const tm=tmaxVal(ka,K); return batemanC(F,X0,ka,VD,K,tm); }
+function aucVal(F,X0,Cl){ return F*X0/Cl; }
+function genCurve(F,X0,ka,VD,K,n){
+  n = n||150;
+  const tm = tmaxVal(ka,K);
+  const tEnd = Math.max(24, tm*5);
+  const pts=[];
+  for(let i=0;i<=n;i++){
+    const t = (i/n)*tEnd;
+    pts.push({t, c: batemanC(F,X0,ka,VD,K,t)});
+  }
+  return pts;
+}
+function fmt(n,d){ d=(d===undefined)?2:d; return Number(n).toFixed(d); }
+
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  const e = document.createElementNS(SVGNS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+/* ============================================================
+   GENERIC CURVE PLOT (linear or semilog Y), for Theory + Simulation
+   ============================================================ */
+function drawCurvePlot(svg, curves, opts){
+  opts = opts || {};
+  const W = svg.viewBox.baseVal.width || 640;
+  const H = svg.viewBox.baseVal.height || 340;
+  const M = {left:56,right:16,top:16,bottom:38};
+  const innerW = W-M.left-M.right, innerH = H-M.top-M.bottom;
+  svg.innerHTML = "";
+  const logY = !!opts.logY;
+  let tMax = opts.tMax || Math.max(...curves.flatMap(c=>c.points.map(p=>p.t)));
+  let yMax = opts.yMax || Math.max(...curves.flatMap(c=>c.points.map(p=>p.c)))*1.15;
+  const yMin = logY ? (opts.yMin||0.05) : 0;
+
+  function xPx(t){ return M.left + (t/tMax)*innerW; }
+  function yPx(c){
+    if(logY){
+      const cl = Math.max(yMin, c);
+      const frac = (Math.log10(yMax)-Math.log10(cl))/(Math.log10(yMax)-Math.log10(yMin));
+      return M.top + frac*innerH;
+    }
+    return M.top + innerH - (c/yMax)*innerH;
+  }
+  svg.appendChild(el("rect",{x:M.left,y:M.top,width:innerW,height:innerH,fill:"white",stroke:"#d9d5cc"}));
+
+  if(logY){
+    [0.1,1,10,100].filter(v=>v>=yMin && v<=yMax).forEach(v=>{
+      const py=yPx(v);
+      svg.appendChild(el("line",{x1:M.left,x2:M.left+innerW,y1:py,y2:py,stroke:"#e3dfd4"}));
+      svg.appendChild(el("text",{x:M.left-6,y:py+4,"text-anchor":"end","font-size":"10",fill:"#5E6A71"})).textContent=v;
+    });
+  } else {
+    const nt = niceTicks(yMax, 5);
+    yMax = nt.hi; // use the nice rounded max so the curve/axis stay consistent
+    const decimals = Number.isInteger(nt.step) ? 0 : (nt.step>=0.1 ? 1 : 2);
+    nt.ticks.forEach(v=>{
+      const py=yPx(v);
+      svg.appendChild(el("line",{x1:M.left,x2:M.left+innerW,y1:py,y2:py,stroke:"#e3dfd4"}));
+      svg.appendChild(el("text",{x:M.left-6,y:py+4,"text-anchor":"end","font-size":"10",fill:"#5E6A71"})).textContent=fmt(v,decimals);
+    });
+  }
+  const xStep = tMax<=30?4:tMax<=80?10:50;
+  for(let t=0;t<=tMax;t+=xStep){
+    const px=xPx(t);
+    svg.appendChild(el("line",{x1:px,x2:px,y1:M.top+innerH,y2:M.top+innerH+5,stroke:"#5E6A71"}));
+    svg.appendChild(el("text",{x:px,y:M.top+innerH+18,"text-anchor":"middle","font-size":"10",fill:"#5E6A71"})).textContent=t;
+  }
+  svg.appendChild(el("text",{x:M.left+innerW/2,y:H-4,"text-anchor":"middle","font-size":"11",fill:"#22303a"})).textContent="time (h)";
+  svg.appendChild(el("text",{x:14,y:M.top+innerH/2,"text-anchor":"middle","font-size":"11",fill:"#22303a",transform:`rotate(-90 14 ${M.top+innerH/2})`})).textContent="concentration (mg/L)";
+
+  curves.forEach(curve=>{
+    let d = "";
+    curve.points.forEach((p,i)=>{
+      const c = logY? Math.max(yMin,p.c) : p.c;
+      const cmd = i===0?"M":"L";
+      d += `${cmd}${xPx(p.t)},${yPx(c)} `;
+    });
+    svg.appendChild(el("path",{d, fill:"none", stroke:curve.color||"#981E32", "stroke-width":2.2, "stroke-dasharray":curve.dashed?"6,4":"none"}));
+    if(curve.marker){
+      svg.appendChild(el("circle",{cx:xPx(curve.marker.t), cy:yPx(curve.marker.c), r:5, fill:curve.color||"#981E32", stroke:"white","stroke-width":1.5}));
+    }
+  });
+  return {xPx,yPx,tMax,yMax};
+}
+function renderLegend(container, curves){
+  container.innerHTML = curves.map(c=>`<span><span class="swatch" style="background:${c.color}"></span>${c.label}</span>`).join("");
+}
+
+/* ============================================================
+   THEORY TAB — KaTeX formulas + normal-vs-flip-flop reference figure
+   ============================================================ */
+(function(){
+  // ---- render formulas in proper math typesetting ----
+  function renderKatex(id, tex){
+    const el3 = document.getElementById(id);
+    if(el3 && window.katex){
+      try{ katex.render(tex, el3, {throwOnError:false, displayMode:true}); }
+      catch(e){ el3.textContent = tex; }
+    }
+  }
+  renderKatex("katexMainFormula", "C = \\dfrac{k_a F X_0}{V\\,(k_a-K)}\\left(e^{-Kt}-e^{-k_a t}\\right)");
+  renderKatex("katexTmaxFormula", "t_{max} = \\dfrac{\\ln(k_a/K)}{k_a-K}");
+  renderKatex("katexAucFormula", "AUC = \\dfrac{F X_0}{Cl}");
+
+  // ---- Normal vs. flip-flop kinetics: real Bateman-equation simulation,
+  // shown as a toggle (like the Simulation tab) rather than a schematic.
+  // Same 250 mg dose, Vd, Cl (K) for both routes and both button states —
+  // only the oral k<sub>a</sub> changes. The flip-flop route uses a reduced
+  // bioavailability (F=0.15): with F=1, true flip-flop kinetics (k<sub>a</sub><K)
+  // makes the oral curve's slower terminal decay compound over 48h into an
+  // ~60-fold overshoot above the IV line, which obscures the comparison this
+  // figure exists to make. F<1 (physiologically ordinary — incomplete
+  // absorption is common) keeps that overshoot modest (~12-fold by 48h) while
+  // preserving ~25h of clean, visibly non-parallel decline first.
+  const FF_X0=250, FF_VD=25, FF_K=0.105, FF_Cl=FF_VD*FF_K; // Cl = 2.625 L/h
+  const FF_T=48;
+  const ivPts = [];
+  for(let i=0;i<=120;i++){ const t=(i/120)*FF_T; ivPts.push({t, c: (FF_X0/FF_VD)*Math.exp(-FF_K*t)}); }
+
+  function showFlip(isFlip){
+    const F = isFlip ? 0.15 : 0.5;
+    const ka = isFlip ? 0.03 : 0.85;
+    const oral = [];
+    for(let i=0;i<=120;i++){ const t=(i/120)*FF_T; oral.push({t, c: batemanC(F,FF_X0,ka,FF_VD,FF_K,t)}); }
+    const curves = [
+      {points: oral, color:"#981E32", label:`Oral, F=${F}, k<sub>a</sub> = ${ka} h<sup>-1</sup>`},
+      {points: ivPts, color:"#5E6A71", dashed:true, label:"IV bolus, same dose (slope = \u2212K)"}
+    ];
+    const svg = document.getElementById("theoryPlot");
+    const yMax = Math.max(FF_X0/FF_VD, ...oral.map(p=>p.c)) * 1.3;
+    drawCurvePlot(svg, curves, {logY:true, tMax:FF_T, yMax, yMin:0.005});
+    renderLegend(document.getElementById("theoryLegend"), curves);
+    document.getElementById("theoryFigCaption").innerHTML = isFlip
+      ? `Same 250 mg dose, V<sub>d</sub> = 25 L, Cl = 2.625 L/h (K = 0.105 h<sup>-1</sup>). Oral F = 0.15, k<sub>a</sub> = 0.03 h<sup>-1</sup> (\u226aK) \u2014 notice the shallower decline through most of the window; the oral curve eventually overtakes the IV line at very late times because its terminal decay is genuinely slower than K, not because of an error.`
+      : `Same 250 mg dose, V<sub>d</sub> = 25 L, Cl = 2.625 L/h (K = 0.105 h<sup>-1</sup>). Oral F = 0.5, k<sub>a</sub> = 0.85 h<sup>-1</sup> (\u226bK) \u2014 the terminal slope runs parallel to, and below, the IV line.`;
+  }
+  document.getElementById("theoryNormalBtn").onclick = ()=>showFlip(false);
+  document.getElementById("theoryFlipBtn").onclick = ()=>showFlip(true);
+  showFlip(false);
+})();
+
+/* ============================================================
+   SIMULATION TAB — ported from Module 1's Simulation tab:
+   boxed slider+number-input controls, and a "Set as Reference"
+   mechanism to compare two parameter sets on one chart.
+   ============================================================ */
+
+// ---- reusable slider+number control (ported near-verbatim from Module 1) ----
+function makeSliderControl(container, cfg){
+  // cfg: {label, min, max, step, value, suffix, onChange, boxed, compact}
+  // boxed defaults to true (its own bordered card). Pass boxed:false when this
+  // slider is nested inside a control that already draws its own param-box
+  // (e.g. Weight, Dose, Vd, Cl) — otherwise you get a box inside a box.
+  // compact:true skips this control's own label row (the wrapper draws one).
+  const wrap = document.createElement("div");
+  wrap.className = cfg.boxed===false ? "ctrl" : "ctrl param-box";
+  wrap.innerHTML = `
+    ${cfg.compact ? "" : `<div class="ctrl-label-row"><span>${cfg.label}</span></div>`}
+    <input type="range" class="s-slider" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}">
+    <div class="value-input-row">
+      <span class="value-chip">
+        <input type="number" class="s-number" step="${cfg.step}" value="${cfg.value}">
+        <span class="input-unit">${cfg.suffix}</span>
+      </span>
+      <details class="range-details">
+        <summary>Edit range</summary>
+        <span class="range-edit-inline">
+          <input type="number" class="s-min" value="${cfg.min}"> \u2013 <input type="number" class="s-max" value="${cfg.max}">
+        </span>
+      </details>
+    </div>
+  `;
+  container.appendChild(wrap);
+  const slider = wrap.querySelector(".s-slider");
+  const number = wrap.querySelector(".s-number");
+  const minInput = wrap.querySelector(".s-min");
+  const maxInput = wrap.querySelector(".s-max");
+  let current = cfg.value;
+
+  function setValue(v, skipCallback){
+    current = v; slider.value = v; number.value = v;
+    if(!skipCallback && cfg.onChange) cfg.onChange(v);
+  }
+  slider.addEventListener("input", ()=> setValue(parseFloat(slider.value)));
+  number.addEventListener("change", ()=>{
+    let v = parseFloat(number.value);
+    if(isNaN(v)) return;
+    const lo=parseFloat(slider.min), hi=parseFloat(slider.max);
+    v = Math.min(Math.max(v,lo),hi);
+    setValue(v);
+  });
+  minInput.addEventListener("change", ()=>{
+    const nv = parseFloat(minInput.value); if(isNaN(nv)) return;
+    slider.min = nv; if(current<nv) setValue(nv);
+  });
+  maxInput.addEventListener("change", ()=>{
+    const nv = parseFloat(maxInput.value); if(isNaN(nv)) return;
+    slider.max = nv; if(current>nv) setValue(nv);
+  });
+  return { getValue: ()=>current, setValue, el: wrap };
+}
+
+// ---- dedicated chart geometry for the Simulation tab (ported from Module 1) ----
+const SIM_SVG_W=700, SIM_SVG_H=360, SIM_PAD={top:16,right:24,bottom:50,left:64};
+const SIM_PLOT_W=SIM_SVG_W-SIM_PAD.left-SIM_PAD.right, SIM_PLOT_H=SIM_SVG_H-SIM_PAD.top-SIM_PAD.bottom;
+
+function simXScale(t,tMax){ return SIM_PAD.left + (t/tMax)*SIM_PLOT_W; }
+function simYScale(v,bounds,mode){
+  if(mode==="log"){
+    const vv = Math.max(v, bounds.lo);
+    return SIM_PAD.top + SIM_PLOT_H - (Math.log10(vv/bounds.lo)/Math.log10(bounds.hi/bounds.lo))*SIM_PLOT_H;
+  }
+  return SIM_PAD.top + SIM_PLOT_H - (v/bounds.hi)*SIM_PLOT_H;
+}
+function simPathFromPoints(pts,bounds,mode,tMax){
+  return pts.map((p,i)=>`${i===0?"M":"L"}${simXScale(p[0],tMax).toFixed(1)},${simYScale(p[1],bounds,mode).toFixed(1)}`).join(" ");
+}
+// ---- "Nice numbers" axis ticks (same approach D3 etc. use): snaps the step
+// size to 1, 2, or 5 times a power of ten, so labels read as clean round
+// numbers (2/4/6/8..., 10/20/30..., 100/200...) instead of dividing whatever
+// the data max happens to be into 5 arbitrary, often ugly slices.
+function niceTickStep(rawStep){
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const residual = rawStep / mag;
+  let niceResidual;
+  if(residual <= 1) niceResidual = 1;
+  else if(residual <= 2) niceResidual = 2;
+  else if(residual <= 5) niceResidual = 5;
+  else niceResidual = 10;
+  return niceResidual * mag;
+}
+function niceTicks(dataMax, targetCount){
+  targetCount = targetCount || 5;
+  if(!(dataMax > 0)) return {hi:5, step:1, ticks:[0,1,2,3,4,5]};
+  const step = niceTickStep(dataMax/targetCount);
+  const niceMax = Math.ceil(dataMax/step)*step;
+  const ticks = [];
+  for(let v=0; v<=niceMax+1e-9; v+=step) ticks.push(Math.round(v/step)*step);
+  return {hi:niceMax, step, ticks};
+}
+
+function simComputeBounds(dataMax, dataMinPositive, mode){
+  if(mode==="log"){
+    let lo = Math.pow(10, Math.floor(Math.log10(Math.max(dataMinPositive,1e-6))));
+    let hi = Math.pow(10, Math.ceil(Math.log10(dataMax*1.15)));
+    if(hi<=lo) hi = lo*10;
+    if(Math.log10(hi/lo) > 4) lo = hi/Math.pow(10,4);
+    return {lo,hi};
+  }
+  return niceTicks(dataMax*1.15, 5);
+}
+function computeOralPK(F,X0,ka,VD,Cl){
+  const K = Cl/VD;
+  const tmax = tmaxVal(ka,K);
+  const cmax = batemanC(F,X0,ka,VD,K,tmax);
+  const auc = aucVal(F,X0,Cl);
+  return {F,X0,ka,VD,Cl,K,tmax,cmax,auc};
+}
+function oralCurvePoints(p, tMax){
+  const pts=[]; const step = tMax/96;
+  for(let t=0;t<=tMax;t+=step){ pts.push([t, batemanC(p.F,p.X0,p.ka,p.VD,p.K,t)]); }
+  return pts;
+}
+
+// ---- Weight control (kg/lbs), ported from Module 1 ----
+function makeWeightControlOral(container, onChange){
+  const wrap = document.createElement("div");
+  wrap.className = "param-box";
+  wrap.innerHTML = `<div class="ctrl-label-row">
+      <span>Patient Weight</span>
+      <span class="unit-toggle"><button type="button" class="unit-btn active" data-unit="kg">kg</button><button type="button" class="unit-btn" data-unit="lbs">lbs</button></span>
+    </div><div class="wt-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector(".wt-slot");
+  let unit = "kg";
+  const RANGES = { kg:{min:40,max:140,step:1}, lbs:{min:88,max:308,step:1} };
+  const KG_TO_LBS = 2.20462;
+  const ctrl = makeSliderControl(slot, {label:"", min:RANGES.kg.min, max:RANGES.kg.max, step:RANGES.kg.step, value:70, suffix:"kg", boxed:false, compact:true, onChange:()=>onChange()});
+  wrap.querySelectorAll(".unit-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const newUnit = btn.dataset.unit; if(newUnit===unit) return;
+      wrap.querySelectorAll(".unit-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active");
+      const factor = newUnit==="lbs" ? KG_TO_LBS : 1/KG_TO_LBS;
+      const newVal = ctrl.getValue()*factor; unit = newUnit; const r = RANGES[unit];
+      const slider = ctrl.el.querySelector(".s-slider"), number = ctrl.el.querySelector(".s-number");
+      ctrl.el.querySelector(".input-unit").textContent = unit;
+      slider.min=r.min; slider.max=r.max; slider.step=r.step; number.step=r.step;
+      ctrl.setValue(Math.round(newVal));
+    });
+  });
+  return { getKg: ()=> unit==="kg" ? ctrl.getValue() : ctrl.getValue()/KG_TO_LBS };
+}
+
+// ---- Dose (mg <-> mg/kg), Vd (L <-> L/kg), Cl (L/h <-> L/h/kg) — ported pattern ----
+function makeDoseControlOral(container, weightGetter, onChange){
+  const wrap = document.createElement("div");
+  wrap.className = "param-box";
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Dose (X<sub>0</sub>)</span>
+      <span class="unit-toggle"><button type="button" class="unit-btn active" data-mode="abs">mg</button><button type="button" class="unit-btn" data-mode="perkg">mg/kg</button></span>
+    </div><div class="dose-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector(".dose-slot");
+  let mode="abs", absoluteMg=500;
+  const ctrl = makeSliderControl(slot, {label:"", min:50, max:2000, step:10, value:500, suffix:"mg", boxed:false, compact:true, onChange:(v)=>{ absoluteMg = mode==="abs"? v : v*weightGetter(); onChange(); }});
+  wrap.querySelectorAll(".unit-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const newMode=btn.dataset.mode; if(newMode===mode) return;
+      wrap.querySelectorAll(".unit-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active");
+      mode = newMode;
+      const slider=ctrl.el.querySelector(".s-slider"), number=ctrl.el.querySelector(".s-number"), unitSpan=ctrl.el.querySelector(".input-unit");
+      if(mode==="abs"){ unitSpan.textContent="mg"; slider.min=50;slider.max=2000;slider.step=10;number.step=10; ctrl.setValue(Math.round(absoluteMg)); }
+      else{ const v=absoluteMg/weightGetter(); unitSpan.textContent="mg/kg"; slider.min=1;slider.max=40;slider.step=0.5;number.step=0.5; ctrl.setValue(parseFloat(v.toFixed(1))); }
+    });
+  });
+  return { getAbsoluteMg:()=>absoluteMg, refreshForWeight:()=>{ if(mode==="perkg"){ absoluteMg=ctrl.getValue()*weightGetter(); onChange(); } } };
+}
+function makeVdControlOral(container, weightGetter, onChange){
+  const wrap = document.createElement("div");
+  wrap.className = "param-box";
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Volume of Distribution (V<sub>d</sub>)</span>
+      <span class="unit-toggle"><button type="button" class="unit-btn active" data-mode="abs">L</button><button type="button" class="unit-btn" data-mode="perkg">L/kg</button></span>
+    </div><div class="vd-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector(".vd-slot");
+  let mode="abs", absoluteL=25;
+  const ctrl = makeSliderControl(slot, {label:"", min:5, max:80, step:0.5, value:25, suffix:"L", boxed:false, compact:true, onChange:(v)=>{ absoluteL = mode==="abs"? v : v*weightGetter(); onChange(); }});
+  wrap.querySelectorAll(".unit-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const newMode=btn.dataset.mode; if(newMode===mode) return;
+      wrap.querySelectorAll(".unit-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active");
+      mode = newMode;
+      const slider=ctrl.el.querySelector(".s-slider"), number=ctrl.el.querySelector(".s-number"), unitSpan=ctrl.el.querySelector(".input-unit");
+      if(mode==="abs"){ unitSpan.textContent="L"; slider.min=5;slider.max=80;slider.step=0.5;number.step=0.5; ctrl.setValue(parseFloat(absoluteL.toFixed(1))); }
+      else{ const v=absoluteL/weightGetter(); unitSpan.textContent="L/kg"; slider.min=0.1;slider.max=1.5;slider.step=0.01;number.step=0.01; ctrl.setValue(parseFloat(v.toFixed(2))); }
+    });
+  });
+  return { getAbsoluteL:()=>absoluteL, refreshForWeight:()=>{ if(mode==="perkg"){ absoluteL=ctrl.getValue()*weightGetter(); onChange(); } } };
+}
+function makeClControlOral(container, weightGetter, onChange){
+  const wrap = document.createElement("div");
+  wrap.className = "param-box";
+  wrap.innerHTML = `<div class="ctrl-label-row"><span>Clearance (Cl)</span>
+      <span class="unit-toggle"><button type="button" class="unit-btn active" data-mode="abs">Total (L/h)</button><button type="button" class="unit-btn" data-mode="perkg">Per kg (L/h/kg)</button></span>
+    </div><div class="cl-slot"></div>`;
+  container.appendChild(wrap);
+  const slot = wrap.querySelector(".cl-slot");
+  let mode="abs", absoluteLh=1.25;
+  const ctrl = makeSliderControl(slot, {label:"", min:0.2, max:6, step:0.05, value:1.25, suffix:"L/h", boxed:false, compact:true, onChange:(v)=>{ absoluteLh = mode==="abs"? v : v*weightGetter(); onChange(); }});
+  wrap.querySelectorAll(".unit-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const newMode=btn.dataset.mode; if(newMode===mode) return;
+      wrap.querySelectorAll(".unit-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active");
+      mode = newMode;
+      const slider=ctrl.el.querySelector(".s-slider"), number=ctrl.el.querySelector(".s-number"), unitSpan=ctrl.el.querySelector(".input-unit");
+      if(mode==="abs"){ unitSpan.textContent="L/h"; slider.min=0.2;slider.max=6;slider.step=0.05;number.step=0.05; ctrl.setValue(parseFloat(absoluteLh.toFixed(2))); }
+      else{ const v=absoluteLh/weightGetter(); unitSpan.textContent="L/h/kg"; slider.min=0.005;slider.max=0.1;slider.step=0.001;number.step=0.001; ctrl.setValue(parseFloat(v.toFixed(3))); }
+    });
+  });
+  return { getAbsoluteLh:()=>absoluteLh, refreshForWeight:()=>{ if(mode==="perkg"){ absoluteLh=ctrl.getValue()*weightGetter(); onChange(); } } };
+}
+
+const Sim = (function(){
+  let simMode = "linear";
+  let concUnit = "mg/L";
+  let mecMgL = 5, mtcMgL = 20;
+  let referenceR = null;
+  let simTimeCtrl, twMecCtrl, twMtcCtrl;
+  let ctrls = {};
+  let rules = [{id:0, param:"cmax", lower:null, upper:null}];
+  let nextRuleId = 1;
+
+  function concFactor(){ return concUnit==="ng/mL" ? 1000 : 1; }
+  function aucUnitLabel(){ return concUnit==="ng/mL" ? "ng\u00b7h/mL" : "mg\u00b7h/L"; }
+
+  function renderControls(){
+    const container = document.getElementById("simControls");
+    container.innerHTML = "";
+    ctrls.weight = makeWeightControlOral(container, ()=>{ ctrls.X0.refreshForWeight(); ctrls.VD.refreshForWeight(); ctrls.Cl.refreshForWeight(); refresh(); });
+    ctrls.X0 = makeDoseControlOral(container, ()=>ctrls.weight.getKg(), refresh);
+    ctrls.F = makeSliderControl(container, {label:"Bioavailability (F)", min:0.1, max:1, step:0.05, value:1, suffix:"", onChange:refresh});
+    ctrls.ka = makeSliderControl(container, {label:"k<sub>a</sub> (Absorption Rate Constant)", min:0.005, max:2, step:0.005, value:0.5, suffix:"h<sup>-1</sup>", onChange:refresh});
+    ctrls.VD = makeVdControlOral(container, ()=>ctrls.weight.getKg(), refresh);
+    ctrls.Cl = makeClControlOral(container, ()=>ctrls.weight.getKg(), refresh);
+
+    const twWrap = document.createElement("div");
+    twWrap.className = "param-box";
+    twWrap.innerHTML = `<div class="ctrl-label-row"><span>Therapeutic Window (MEC\u2013MTC)</span></div><div class="mec-slot"></div><div class="mtc-slot"></div>`;
+    container.appendChild(twWrap);
+    twMecCtrl = makeSliderControl(twWrap.querySelector(".mec-slot"), {label:"MEC (lower)", min:0.5, max:30, step:0.5, value:mecMgL, suffix:concUnit, onChange:(v)=>{ mecMgL=v/concFactor(); refresh(); }});
+    twMtcCtrl = makeSliderControl(twWrap.querySelector(".mtc-slot"), {label:"MTC (upper)", min:1, max:60, step:0.5, value:mtcMgL, suffix:concUnit, onChange:(v)=>{ mtcMgL=v/concFactor(); refresh(); }});
+
+    const timeSlot = document.getElementById("simTimeSlot");
+    simTimeCtrl = makeSliderControl(timeSlot, {label:"X-axis range", min:6, max:120, step:6, value:24, suffix:"h", onChange:refresh});
+  }
+
+  // Keeps the MEC/MTC sliders' displayed number/range/suffix in sync with the
+  // global mg/L <-> ng/mL toggle, the same "store the absolute value, convert
+  // the display" pattern used for Weight/Dose/Vd/Cl elsewhere in this tab.
+  function refreshConcUnitControls(){
+    const factor = concFactor();
+    [
+      {ctrl:twMecCtrl, base:{min:0.5,max:30,step:0.5}, get:()=>mecMgL},
+      {ctrl:twMtcCtrl, base:{min:1,max:60,step:0.5}, get:()=>mtcMgL}
+    ].forEach(s=>{
+      const slider = s.ctrl.el.querySelector(".s-slider");
+      const number = s.ctrl.el.querySelector(".s-number");
+      const unitSpan = s.ctrl.el.querySelector(".input-unit");
+      slider.min = s.base.min*factor; slider.max = s.base.max*factor; slider.step = s.base.step*factor;
+      number.step = s.base.step*factor;
+      unitSpan.textContent = concUnit;
+      const displayVal = s.get()*factor;
+      s.ctrl.setValue(factor===1 ? parseFloat(displayVal.toFixed(2)) : Math.round(displayVal), true);
+    });
+  }
+
+  function currentParams(){
+    return computeOralPK(ctrls.F.getValue(), ctrls.X0.getAbsoluteMg(), ctrls.ka.getValue(), ctrls.VD.getAbsoluteL(), ctrls.Cl.getAbsoluteLh());
+  }
+
+  function drawChart(activeR, refR, mode, tMax){
+    const svg = document.getElementById("simSvg");
+    const factor = concFactor();
+    const activePts = oralCurvePoints(activeR, tMax).map(p=>[p[0], p[1]*factor]);
+    const activeCmaxDisp = activeR.cmax*factor;
+    const mecDisp = mecMgL*factor, mtcDisp = mtcMgL*factor;
+    // Axis range is driven by the CURVE'S OWN data only — MEC/MTC thresholds
+    // are drawn if they happen to fall within that range, but must never be
+    // allowed to stretch the axis themselves. Otherwise a generic default
+    // threshold far outside a particular drug's real concentration range
+    // (e.g. MTC=20 mg/L when a low-dose drug peaks at 84 ng/mL) silently
+    // squashes the actual curve down to an invisible sliver near zero.
+    let allVals = activePts.map(p=>p[1]).concat([activeCmaxDisp]);
+    let refPts = null;
+    if(refR){ refPts = oralCurvePoints(refR, tMax).map(p=>[p[0], p[1]*factor]); allVals.push(...refPts.map(p=>p[1]), refR.cmax*factor); }
+    const dataMax = Math.max(...allVals);
+    const dataMinPositive = Math.min(...allVals.filter(v=>v>0));
+    const bounds = simComputeBounds(dataMax, dataMinPositive, mode);
+    svg.__chartState = {activeR, refR, mode, tMax, bounds};
+    svg.setAttribute("viewBox", `0 0 ${SIM_SVG_W} ${SIM_SVG_H}`);
+
+    let gridLines="", yLabels="";
+    if(mode==="log"){
+      const startPow = Math.round(Math.log10(bounds.lo)), endPow = Math.round(Math.log10(bounds.hi));
+      for(let p=startPow;p<=endPow;p++){
+        const v=Math.pow(10,p), y=simYScale(v,bounds,mode);
+        gridLines += `<line x1="${SIM_PAD.left}" y1="${y.toFixed(1)}" x2="${SIM_SVG_W-SIM_PAD.right}" y2="${y.toFixed(1)}" stroke="#ECEDEE"/>`;
+        yLabels += `<text x="${SIM_PAD.left-10}" y="${(y+5).toFixed(1)}" text-anchor="end" font-size="12" fill="#5E6A71">${v>=1?v.toFixed(0):v.toFixed(2)}</text>`;
+      }
+    } else {
+      const decimals = Number.isInteger(bounds.step) ? 0 : (bounds.step>=0.1 ? 1 : 2);
+      bounds.ticks.forEach(v=>{
+        const y=simYScale(v,bounds,mode);
+        gridLines += `<line x1="${SIM_PAD.left}" y1="${y.toFixed(1)}" x2="${SIM_SVG_W-SIM_PAD.right}" y2="${y.toFixed(1)}" stroke="#ECEDEE"/>`;
+        yLabels += `<text x="${SIM_PAD.left-10}" y="${(y+5).toFixed(1)}" text-anchor="end" font-size="12" fill="#5E6A71">${v.toFixed(decimals)}</text>`;
+      });
+    }
+    let xLabels="";
+    for(let i=0;i<=6;i++){
+      const t=(tMax/6)*i, x=simXScale(t,tMax);
+      xLabels += `<text x="${x.toFixed(1)}" y="${SIM_SVG_H-SIM_PAD.bottom+22}" text-anchor="middle" font-size="12" fill="#5E6A71">${t.toFixed(t%1===0?0:1)}</text>`;
+    }
+    const curvePath = simPathFromPoints(activePts,bounds,mode,tMax);
+    // Area-fill baseline: the pixel row at the bottom of the plot area works for
+    // BOTH linear (true zero) and log (axis floor, since log has no true zero) —
+    // this is what lets the AUC shading appear in semi-log mode too.
+    const baselineY = SIM_PAD.top + SIM_PLOT_H;
+    const areaPath = curvePath + ` L${simXScale(tMax,tMax).toFixed(1)},${baselineY.toFixed(1)} L${simXScale(0,tMax).toFixed(1)},${baselineY.toFixed(1)} Z`;
+    let refPath = "";
+    if(refPts) refPath = `<path d="${simPathFromPoints(refPts,bounds,mode,tMax)}" fill="none" stroke="#5E6A71" stroke-width="2.5" stroke-dasharray="7,5"/>`;
+    const markerY = simYScale(activeCmaxDisp,bounds,mode);
+    const mec = mecDisp, mtc = mtcDisp;
+    const mecInRange = mode==="log" ? (mec>=bounds.lo && mec<=bounds.hi) : (mec<=bounds.hi);
+    const mtcInRange = mode==="log" ? (mtc>=bounds.lo && mtc<=bounds.hi) : (mtc<=bounds.hi);
+
+    svg.innerHTML = `
+      ${gridLines}
+      <line x1="${SIM_PAD.left}" y1="${SIM_PAD.top}" x2="${SIM_PAD.left}" y2="${SIM_SVG_H-SIM_PAD.bottom}" stroke="#DADDDF" stroke-width="1.5"/>
+      <line x1="${SIM_PAD.left}" y1="${SIM_SVG_H-SIM_PAD.bottom}" x2="${SIM_SVG_W-SIM_PAD.right}" y2="${SIM_SVG_H-SIM_PAD.bottom}" stroke="#DADDDF" stroke-width="1.5"/>
+      ${yLabels}${xLabels}
+      <text x="${SIM_PAD.left+SIM_PLOT_W/2}" y="${SIM_SVG_H-6}" text-anchor="middle" font-size="13" font-weight="700" fill="#5E6A71">Time (hours)</text>
+      <text x="18" y="${SIM_PAD.top+SIM_PLOT_H/2}" text-anchor="middle" font-size="13" font-weight="700" fill="#5E6A71" transform="rotate(-90 18 ${SIM_PAD.top+SIM_PLOT_H/2})">Concentration (${concUnit})${mode==="log"?" \u2014 log scale":""}</text>
+      <path d="${areaPath}" fill="rgba(152,30,50,0.07)" stroke="none"/>
+      ${mtcInRange?`<line x1="${SIM_PAD.left}" y1="${simYScale(mtc,bounds,mode).toFixed(1)}" x2="${SIM_SVG_W-SIM_PAD.right}" y2="${simYScale(mtc,bounds,mode).toFixed(1)}" stroke="#981E32" stroke-width="1.5" stroke-dasharray="6,4"/>`:""}
+      ${mecInRange?`<line x1="${SIM_PAD.left}" y1="${simYScale(mec,bounds,mode).toFixed(1)}" x2="${SIM_SVG_W-SIM_PAD.right}" y2="${simYScale(mec,bounds,mode).toFixed(1)}" stroke="#3F9E6E" stroke-width="1.5" stroke-dasharray="6,4"/>`:""}
+      <path d="${curvePath}" fill="none" stroke="#981E32" stroke-width="3"/>
+      ${refPath}
+      <circle cx="${simXScale(Math.min(activeR.tmax,tMax),tMax).toFixed(1)}" cy="${markerY.toFixed(1)}" r="5" fill="#981E32" stroke="white" stroke-width="1.5"/>
+      <g id="simHoverLayer" style="display:none; pointer-events:none;">
+        <line id="simHoverCrosshair" x1="0" y1="${SIM_PAD.top}" x2="0" y2="${SIM_SVG_H-SIM_PAD.bottom}" stroke="#9AA3B2" stroke-width="1" stroke-dasharray="3,3"/>
+        <circle id="simHoverDotRef" r="6" fill="#5E6A71" stroke="#fff" stroke-width="2" style="display:none;"/>
+        <circle id="simHoverDotActive" r="6" fill="#981E32" stroke="#fff" stroke-width="2"/>
+        <rect id="simHoverTooltipBg" fill="#1F2430" opacity="0.92" rx="6"/>
+        <text id="simHoverTooltipText" font-size="12" fill="#fff"></text>
+      </g>
+    `;
+  }
+
+  function attachHover(){
+    const svg = document.getElementById("simSvg");
+    svg.addEventListener("mousemove",(e)=>{
+      const state = svg.__chartState;
+      const hoverLayer = svg.querySelector("#simHoverLayer");
+      if(!state || !hoverLayer) return;
+      const pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+      const ctm = svg.getScreenCTM(); if(!ctm) return;
+      const svgP = pt.matrixTransform(ctm.inverse());
+      if(svgP.x<SIM_PAD.left || svgP.x>SIM_SVG_W-SIM_PAD.right || svgP.y<SIM_PAD.top || svgP.y>SIM_SVG_H-SIM_PAD.bottom){
+        hoverLayer.style.display="none"; return;
+      }
+      let t = ((svgP.x-SIM_PAD.left)/SIM_PLOT_W)*state.tMax;
+      t = Math.max(0, Math.min(state.tMax, t));
+      const factor = concFactor();
+      const activeC = batemanC(state.activeR.F,state.activeR.X0,state.activeR.ka,state.activeR.VD,state.activeR.K,t)*factor;
+      const xPix = simXScale(t,state.tMax), yPixActive = simYScale(activeC,state.bounds,state.mode);
+      hoverLayer.style.display="block";
+      svg.querySelector("#simHoverCrosshair").setAttribute("x1",xPix.toFixed(1));
+      svg.querySelector("#simHoverCrosshair").setAttribute("x2",xPix.toFixed(1));
+      svg.querySelector("#simHoverDotActive").setAttribute("cx",xPix.toFixed(1));
+      svg.querySelector("#simHoverDotActive").setAttribute("cy",yPixActive.toFixed(1));
+      const lines = [`t = ${fmt(t,1)} h`, `Active: ${fmt(activeC)} ${concUnit}`];
+      const dotRef = svg.querySelector("#simHoverDotRef");
+      if(state.refR){
+        const refC = batemanC(state.refR.F,state.refR.X0,state.refR.ka,state.refR.VD,state.refR.K,t)*factor;
+        const yPixRef = simYScale(refC,state.bounds,state.mode);
+        dotRef.style.display="block"; dotRef.setAttribute("cx",xPix.toFixed(1)); dotRef.setAttribute("cy",yPixRef.toFixed(1));
+        lines.push(`Reference: ${fmt(refC)} ${concUnit}`);
+      } else { dotRef.style.display="none"; }
+      const tw=168, th=16+lines.length*18;
+      let tx = xPix+12; if(tx+tw > SIM_SVG_W-SIM_PAD.right) tx = xPix-tw-12;
+      const ty = SIM_PAD.top+6;
+      const bg = svg.querySelector("#simHoverTooltipBg"), txt = svg.querySelector("#simHoverTooltipText");
+      bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw); bg.setAttribute("height",th);
+      txt.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}">${l}</tspan>`).join("");
+    });
+    svg.addEventListener("mouseleave", ()=>{ const hl=svg.querySelector("#simHoverLayer"); if(hl) hl.style.display="none"; });
+  }
+
+  // ---- Live Outputs (boxed cards below chart) ----
+  function outGridHtml(r){
+    const factor = concFactor();
+    return `
+      <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value">${fmt(r.K,4)}</span><span class="unit">h<sup>-1</sup></span></div></div>
+      <div class="out-card"><div class="label">C<sub>max</sub></div><div class="value-row"><span class="value">${fmt(r.cmax*factor)}</span><span class="unit">${concUnit}</span></div></div>
+      <div class="out-card"><div class="label">t<sub>max</sub></div><div class="value-row"><span class="value">${fmt(r.tmax)}</span><span class="unit">h</span></div></div>
+      <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value">${fmt(r.auc*factor)}</span><span class="unit">${aucUnitLabel()}</span></div></div>
+    `;
+  }
+  function renderOutputs(r){
+    document.getElementById("simOutGrid").innerHTML = outGridHtml(r);
+    const refCard = document.getElementById("simRefOutputsCard");
+    if(referenceR){
+      refCard.style.display = "block";
+      document.getElementById("simRefOutGrid").innerHTML = outGridHtml(referenceR);
+    } else {
+      refCard.style.display = "none";
+    }
+  }
+
+  // ---- Monitoring rules (Cmax / C at time t / AUC), evaluated for active + reference ----
+  function ruleRawValue(rule, r){
+    if(!r) return NaN;
+    const factor = concFactor();
+    if(rule.param==="cmax") return r.cmax*factor;
+    if(rule.param==="ct") return batemanC(r.F,r.X0,r.ka,r.VD,r.K, rule.t||0)*factor;
+    if(rule.param==="auc") return r.auc*factor;
+    return NaN;
+  }
+  function ruleLabel(rule){
+    if(rule.param==="cmax") return "C<sub>max</sub>";
+    if(rule.param==="ct") return `C(t=${rule.t}h)`;
+    if(rule.param==="auc") return "AUC (per dose)";
+    return "";
+  }
+  function ruleUnit(rule){ return rule.param==="auc" ? aucUnitLabel() : concUnit; }
+
+  function renderRules(){
+    const active = currentParams();
+    const container = document.getElementById("simRules");
+    let html = "";
+    rules.forEach(rule=>{
+      const rawA = ruleRawValue(rule, active);
+      const rawR = referenceR ? ruleRawValue(rule, referenceR) : null;
+      const unit = ruleUnit(rule);
+      const hasBounds = rule.lower!=null && rule.upper!=null && !isNaN(rule.lower) && !isNaN(rule.upper);
+      let panelClass = "rule-panel", statusLines = [];
+      if(!hasBounds){
+        statusLines.push(`Active: ${ruleLabel(rule)} = ${isFinite(rawA)?fmt(rawA):"--"} ${unit} \u2014 set a target range to evaluate.`);
+        if(referenceR) statusLines.push(`Reference: ${ruleLabel(rule)} = ${isFinite(rawR)?fmt(rawR):"--"} ${unit}`);
+      } else {
+        const withinA = rawA>=rule.lower && rawA<=rule.upper;
+        panelClass += withinA ? " safe" : " warn";
+        statusLines.push(`${withinA?"\u2713":"\u26a0"} Active: ${ruleLabel(rule)} = ${fmt(rawA)} ${unit} \u2014 ${withinA?"within":(rawA<rule.lower?"below":"above")} target (${rule.lower}\u2013${rule.upper} ${unit})`);
+        if(referenceR){
+          const withinR = rawR>=rule.lower && rawR<=rule.upper;
+          statusLines.push(`${withinR?"\u2713":"\u26a0"} Reference: ${ruleLabel(rule)} = ${fmt(rawR)} ${unit} \u2014 ${withinR?"within":(rawR<rule.lower?"below":"above")} target`);
+        }
+      }
+      html += `<div class="${panelClass}">
+        <div class="rule-row">
+          <select class="rule-param-select" data-rid="${rule.id}">
+            <option value="cmax" ${rule.param==="cmax"?"selected":""}>Cmax (peak)</option>
+            <option value="ct" ${rule.param==="ct"?"selected":""}>Concentration at time t</option>
+            <option value="auc" ${rule.param==="auc"?"selected":""}>AUC (per dose)</option>
+          </select>
+          ${rule.param==="ct" ? `<span class="rule-inline">t = <input type="number" step="0.5" class="rule-t-input" data-rid="${rule.id}" value="${rule.t||12}"> h</span>` : ""}
+          <span class="rule-inline">Lower <input type="number" step="any" class="rule-lower-input" data-rid="${rule.id}" value="${rule.lower??""}" placeholder="\u2014"></span>
+          <span class="rule-inline">Upper <input type="number" step="any" class="rule-upper-input" data-rid="${rule.id}" value="${rule.upper??""}" placeholder="\u2014"></span>
+          <span class="rule-inline">${unit}</span>
+          <button class="btn small" data-rid="${rule.id}" data-act="remove">\u2715</button>
+        </div>
+        <p style="margin:8px 0 0; font-weight:700; font-size:0.85rem;">${statusLines.join("<br>")}</p>
+      </div>`;
+    });
+    container.innerHTML = html;
+    container.querySelectorAll(".rule-param-select").forEach(el=>el.addEventListener("change", e=>{
+      const rule = rules.find(x=>x.id===parseInt(e.target.dataset.rid));
+      rule.param = e.target.value;
+      if(rule.param==="ct" && rule.t===undefined) rule.t = 12;
+      rule.lower = null; rule.upper = null;
+      renderRules();
+    }));
+    container.querySelectorAll(".rule-t-input").forEach(el=>el.addEventListener("change", e=>{
+      rules.find(x=>x.id===parseInt(e.target.dataset.rid)).t = parseFloat(e.target.value)||0;
+      renderRules();
+    }));
+    container.querySelectorAll(".rule-lower-input").forEach(el=>el.addEventListener("change", e=>{
+      const v = e.target.value;
+      rules.find(x=>x.id===parseInt(e.target.dataset.rid)).lower = v===""?null:parseFloat(v);
+      renderRules();
+    }));
+    container.querySelectorAll(".rule-upper-input").forEach(el=>el.addEventListener("change", e=>{
+      const v = e.target.value;
+      rules.find(x=>x.id===parseInt(e.target.dataset.rid)).upper = v===""?null:parseFloat(v);
+      renderRules();
+    }));
+    container.querySelectorAll("[data-act=remove]").forEach(el=>el.addEventListener("click", e=>{
+      rules = rules.filter(x=>x.id!==parseInt(e.target.dataset.rid));
+      renderRules();
+    }));
+  }
+
+  // ---- Concentration-time table (t, Reference, Active — max 3 columns) ----
+  const STANDARD_TIMES = [0.5,1,2,4,6,8,12,16,20,24,48];
+  function renderCtTable(){
+    const active = currentParams();
+    const tMax = simTimeCtrl.getValue();
+    const factor = concFactor();
+    let times = STANDARD_TIMES.slice();
+    if(tMax>48){
+      for(let t=72; t<=tMax; t+=24) times.push(t);
+    }
+    let html = `<tr><th>t (h)</th>${referenceR?`<th>Reference (${concUnit})</th>`:""}<th>Active (${concUnit})</th></tr>`;
+    times.forEach(t=>{
+      const cA = batemanC(active.F,active.X0,active.ka,active.VD,active.K,t)*factor;
+      html += `<tr><td>${t}</td>`;
+      if(referenceR){
+        const cR = batemanC(referenceR.F,referenceR.X0,referenceR.ka,referenceR.VD,referenceR.K,t)*factor;
+        html += `<td>${fmt(cR)}</td>`;
+      }
+      html += `<td>${fmt(cA)}</td></tr>`;
+    });
+    document.getElementById("simCtTable").innerHTML = html;
+  }
+
+  function refresh(){
+    const r = currentParams();
+    renderOutputs(r);
+    drawChart(r, referenceR, simMode, simTimeCtrl.getValue());
+    renderRules();
+    renderCtTable();
+  }
+
+  function init(){
+    renderControls();
+    document.getElementById("setRefBtn").onclick = ()=>{
+      referenceR = currentParams();
+      document.getElementById("simRefLegend").style.display = "inline-flex";
+      document.getElementById("refChipWrap").innerHTML = `
+        <div class="ref-summary">
+          <div class="ref-summary-header">Reference parameters <button id="clearRefBtn">\u2715 Clear</button></div>
+          <div class="ref-summary-grid">
+            <span>X<sub>0</sub> <b>${fmt(referenceR.X0,0)} mg</b></span>
+            <span>k<sub>a</sub> <b>${fmt(referenceR.ka,3)} h<sup>-1</sup></b></span>
+            <span>V<sub>d</sub> <b>${fmt(referenceR.VD,1)} L</b></span>
+            <span>Cl <b>${fmt(referenceR.Cl,2)} L/h</b></span>
+          </div>
+        </div>`;
+      document.getElementById("clearRefBtn").onclick = ()=>{
+        referenceR = null;
+        document.getElementById("simRefLegend").style.display = "none";
+        document.getElementById("refChipWrap").innerHTML = "";
+        refresh();
+      };
+      refresh();
+    };
+    document.getElementById("simAddRuleBtn").onclick = ()=>{
+      rules.push({id:nextRuleId++, param:"ct", t:12, lower:null, upper:null});
+      renderRules();
+    };
+    document.querySelectorAll("#simScaleToggle button").forEach(btn=>{
+      btn.onclick = ()=>{
+        document.querySelectorAll("#simScaleToggle button").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        simMode = btn.dataset.scale;
+        refresh();
+      };
+    });
+    document.querySelectorAll("#simUnitToggle button").forEach(btn=>{
+      btn.onclick = ()=>{
+        document.querySelectorAll("#simUnitToggle button").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        concUnit = btn.dataset.unit;
+        refreshConcUnitControls();
+        refresh();
+      };
+    });
+    attachHover();
+    refresh();
+  }
+  return {init};
+})();
+
+/* ============================================================
+   METHOD OF RESIDUALS TAB (click-to-select-3-points)
+   ============================================================ */
+const MOR = (function(){
+  // ---- Preset datasets. Add more entries here as literature examples arrive. ----
+  const DATASETS = [
+    { name:"Example 1 (default)", unit:"mg/L", rows:[
+      {t:0,c:0},{t:1,c:3.13},{t:2,c:4.93},{t:3,c:5.86},{t:4,c:6.25},{t:5,c:6.28},
+      {t:6,c:6.11},{t:7,c:5.81},{t:8,c:5.45},{t:9,c:5.06},{t:10,c:4.66},{t:12,c:3.90},
+      {t:14,c:3.24},{t:16,c:2.67},{t:18,c:2.19},{t:24,c:1.20},{t:28,c:0.81},
+      {t:32,c:0.54},{t:36,c:0.36},{t:48,c:0.10}
+    ]},
+    { name:"Amoxicillin 250 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.25,c:1017},{t:0.5,c:1679.7},{t:0.75,c:2081.1},{t:1,c:2292.2},
+      {t:1.5,c:2347.4},{t:2,c:2138.2},{t:3,c:1499.7},{t:4,c:937.4},{t:6,c:311.3},
+      {t:8,c:92.8},{t:10,c:26.2},{t:12,c:7.1}
+    ]},
+    { name:"Losartan 50 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.25,c:207.4},{t:0.5,c:310.1},{t:0.75,c:353.8},{t:1,c:364.5},
+      {t:1.5,c:341.1},{t:2,c:298.4},{t:3,c:215.5},{t:4,c:152.8},{t:6,c:76.4},
+      {t:8,c:38.2},{t:12,c:9.5},{t:16,c:2.4}
+    ]},
+    { name:"Sildenafil 100 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.25,c:233.3},{t:0.5,c:332.5},{t:0.75,c:369.4},{t:1,c:377.7},
+      {t:1.5,c:362.3},{t:2,c:335.7},{t:3,c:283.3},{t:4,c:238.3},{t:6,c:168.6},
+      {t:8,c:119.3},{t:12,c:59.7},{t:18,c:21.1},{t:24,c:7.5}
+    ]},
+    { name:"Atenolol 50 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.5,c:93.7},{t:1,c:152.9},{t:1.5,c:188.7},{t:2,c:208.9},
+      {t:3,c:221.1},{t:4,c:214.3},{t:6,c:183},{t:8,c:149.9},{t:12,c:98.2},
+      {t:16,c:64},{t:24,c:27.2},{t:32,c:11.6},{t:40,c:4.9}
+    ]},
+    { name:"Levofloxacin 500 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.25,c:2476.4},{t:0.5,c:3862.6},{t:0.75,c:4613.4},{t:1,c:4994.4},
+      {t:1.5,c:5203.1},{t:2,c:5105.4},{t:4,c:4257.6},{t:6,c:3493.7},{t:8,c:2866.2},
+      {t:12,c:1929},{t:16,c:1298.2},{t:24,c:588},{t:36,c:179.2}
+    ]}
+  ];
+  let activeDatasetIdx = 0;
+  let activeUnit = DATASETS[0].unit;
+  let dataRows = DATASETS[0].rows.map(d=>({...d}));
+  let plotData = [];
+  let T_MAX=26, Y_MIN=0.1, Y_MAX=100;
+  const M = {left:64,right:20,top:20,bottom:46};
+  let phase="data", selectedElim=[], selectedAbs=[], residuals=[];
+
+  // ---- dataset / axis-domain bookkeeping ----
+  function recomputeDataset(){
+    plotData = dataRows
+      .filter(d=>isFinite(d.t) && isFinite(d.c) && d.t>=0 && d.c>0)
+      .sort((a,b)=>a.t-b.t);
+    const ts = plotData.map(d=>d.t);
+    const tMaxRaw = ts.length ? Math.max(...ts) : 24;
+    const xStep = niceTickStep(Math.max(tMaxRaw,1)/6);
+    T_MAX = Math.ceil((tMaxRaw*1.15)/xStep)*xStep;
+  }
+  recomputeDataset();
+
+  function fitLine(points){
+    const n=points.length, xs=points.map(p=>p.t), ys=points.map(p=>Math.log(p.c));
+    const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
+    let sxy=0,sxx=0;
+    for(let i=0;i<n;i++){ sxy+=(xs[i]-mx)*(ys[i]-my); sxx+=(xs[i]-mx)*(xs[i]-mx); }
+    const slope=sxy/sxx, intercept=my-slope*mx;
+    return {slope,intercept};
+  }
+  function lineVal(line,t){ return Math.exp(line.intercept+line.slope*t); }
+  function xToPx(t,W,innerW){ return M.left+(t/T_MAX)*innerW; }
+  function yToPx(c,H,innerH){
+    const cl=Math.max(Y_MIN,Math.min(Y_MAX,c));
+    const frac=(Math.log10(Y_MAX)-Math.log10(cl))/(Math.log10(Y_MAX)-Math.log10(Y_MIN));
+    return M.top+frac*innerH;
+  }
+
+  function toggleSelect(arr,pt,max){
+    const idx=arr.findIndex(p=>p.t===pt.t);
+    if(idx>=0) arr.splice(idx,1);
+    else if(arr.length<max) arr.push(pt);
+  }
+  // The residual (absorption) line is only physically meaningful during the
+  // TRUE absorption phase — while concentration is still rising toward Cmax.
+  // Past Cmax the curve is already declining, so a "residual" computed there
+  // isn't reflecting absorption kinetics at all, just noise near the terminal
+  // line — it must never be offered as a fittable point. The cutoff is
+  // therefore the EARLIER of (a) the earliest selected elimination point and
+  // (b) the empirical tmax (the time of the actual observed peak in the data).
+  function empiricalTmax(){
+    if(!plotData.length) return Infinity;
+    return plotData.reduce((best,d)=> d.c>best.c ? d : best, plotData[0]).t;
+  }
+  function residualCutoff(elimPts){
+    const earliestT = Math.min(...elimPts.map(p=>p.t));
+    return Math.min(earliestT, empiricalTmax());
+  }
+  function computeResiduals(line, cutoffT){
+    return plotData.filter(d=>d.t>0 && d.t<cutoffT).map(d=>({t:d.t, resid: lineVal(line,d.t)-d.c})).filter(r=>r.resid>0);
+  }
+
+  // Axis bounds must account for whatever is actually being DRAWN — not just
+  // the raw data. A fitted line's back-extrapolated value at t=0, or a
+  // residual value, both routinely exceed the raw concentration range, and
+  // the previous fixed-from-data-only bound was silently clamping (clipping)
+  // those lines at the plot edge, which is what made a correctly-fit line
+  // look like it was "drawn away from the points."
+  function computeYBounds(){
+    let vals = plotData.map(d=>d.c);
+    let elimLine=null, cutoffT=null;
+    if(selectedElim.length===3){
+      elimLine = fitLine(selectedElim);
+      cutoffT = residualCutoff(selectedElim);
+      vals.push(lineVal(elimLine,0), lineVal(elimLine,T_MAX));
+    }
+    if((phase==="resid"||phase==="done") && elimLine){
+      const res = computeResiduals(elimLine, cutoffT);
+      vals.push(...res.map(r=>r.resid));
+      if(selectedAbs.length===3){
+        // Drawn full-width for the classic textbook look (handled separately in
+        // render()), but for AXIS SCALING purposes only consider the line's
+        // value out to the residual cutoff (~Cmax), not the far T_MAX edge —
+        // when k\u2090 \u226b K the line decays so fast that its value at T_MAX can
+        // underflow to something like 1e-29, which would otherwise stretch the
+        // whole y-axis to accommodate a number nobody needs to see, crushing
+        // every real data point into an unreadable sliver.
+        const absLine = fitLine(selectedAbs);
+        vals.push(lineVal(absLine,0), lineVal(absLine,cutoffT));
+      }
+    }
+    vals = vals.filter(v=>v>0 && isFinite(v));
+    const cMax = vals.length ? Math.max(...vals) : 10;
+    const cMin = vals.length ? Math.min(...vals) : 0.1;
+    let yMax = Math.pow(10, Math.ceil(Math.log10(cMax*1.5)));
+    let yMin = Math.pow(10, Math.floor(Math.log10(Math.max(cMin*0.6,1e-6))));
+    if(yMax<=yMin) yMax = yMin*10;
+    return {yMax,yMin};
+  }
+
+  function render(){
+    const bounds = computeYBounds();
+    Y_MAX = bounds.yMax; Y_MIN = bounds.yMin;
+
+    const svg = document.getElementById("morPlot");
+    const W = svg.viewBox.baseVal.width, H = svg.viewBox.baseVal.height;
+    const innerW=W-M.left-M.right, innerH=H-M.top-M.bottom;
+    svg.innerHTML="";
+    svg.appendChild(el("rect",{x:M.left,y:M.top,width:innerW,height:innerH,fill:"white",stroke:"#d9d5cc"}));
+    const startPow=Math.round(Math.log10(Y_MIN)), endPow=Math.round(Math.log10(Y_MAX));
+    for(let p=startPow;p<=endPow;p++){
+      const v=Math.pow(10,p), py=yToPx(v,H,innerH);
+      svg.appendChild(el("line",{x1:M.left,x2:M.left+innerW,y1:py,y2:py,stroke:"#d9d5cc"}));
+      svg.appendChild(el("text",{x:M.left-10,y:py+5,"text-anchor":"end","font-size":"14",fill:"#5E6A71"})).textContent=v>=1?v.toFixed(0):v.toFixed(2);
+    }
+    const xStep = niceTickStep(Math.max(T_MAX,1)/6);
+    for(let t=0;t<=T_MAX+1e-9;t+=xStep){
+      const px=xToPx(t,W,innerW);
+      svg.appendChild(el("line",{x1:px,x2:px,y1:M.top+innerH,y2:M.top+innerH+5,stroke:"#5E6A71"}));
+      svg.appendChild(el("text",{x:px,y:M.top+innerH+24,"text-anchor":"middle","font-size":"14",fill:"#5E6A71"})).textContent=Number(t.toFixed(4));
+    }
+    svg.appendChild(el("text",{x:M.left+innerW/2,y:H-6,"text-anchor":"middle","font-size":"15","font-weight":"700",fill:"#22303a"})).textContent="time (h)";
+    svg.appendChild(el("text",{x:18,y:M.top+innerH/2,"text-anchor":"middle","font-size":"15","font-weight":"700",fill:"#22303a",transform:`rotate(-90 18 ${M.top+innerH/2})`})).textContent=`concentration (${activeUnit})`;
+
+    function drawClickable(pt,isSel,order,color,onClick){
+      const cx=xToPx(pt.t,W,innerW), cy=yToPx(pt.c,H,innerH);
+      const circle=el("circle",{cx,cy,r:isSel?8:6,fill:isSel?color:"white",stroke:color,"stroke-width":2,style:onClick?"cursor:pointer;":""});
+      if(onClick) circle.addEventListener("click",onClick);
+      svg.appendChild(circle);
+      if(isSel){
+        const label=el("text",{x:cx,y:cy-13,"text-anchor":"middle","font-size":"12","font-weight":"700",fill:color});
+        label.textContent=order+1; svg.appendChild(label);
+      }
+    }
+    // A straight 2-point line is only a faithful representation of the
+    // exponential decay if BOTH endpoints are within the visible y-range.
+    // If the far endpoint's true value has decayed past Y_MIN (common when
+    // k\u2090 \u226b K), yToPx's clamp pins it to the bottom pixel row — which
+    // silently flattens the line's SLOPE, since the same vertical drop gets
+    // spread across a much longer horizontal span than it actually spans.
+    // Fix: find where the line actually crosses Y_MIN (or Y_MAX) and stop
+    // drawing there, instead of forcing it out to an arbitrary t.
+    function lineVisibleRange(line, tLo, tHi){
+      let tStart = tLo, tEnd = tHi;
+      if(line.slope < 0){
+        if(lineVal(line,tLo) > Y_MAX) tStart = (Math.log(Y_MAX)-line.intercept)/line.slope;
+        if(lineVal(line,tHi) < Y_MIN) tEnd = (Math.log(Y_MIN)-line.intercept)/line.slope;
+      } else if(line.slope > 0){
+        if(lineVal(line,tLo) < Y_MIN) tStart = (Math.log(Y_MIN)-line.intercept)/line.slope;
+        if(lineVal(line,tHi) > Y_MAX) tEnd = (Math.log(Y_MAX)-line.intercept)/line.slope;
+      }
+      return [Math.max(tLo,tStart), Math.min(tHi,tEnd)];
+    }
+    function drawLineThrough(pts,color,tEnd){
+      const line=fitLine(pts);
+      const end = tEnd===undefined ? T_MAX : tEnd;
+      const [tStart,tFinish] = lineVisibleRange(line, 0, end);
+      const p1={t:tStart,c:lineVal(line,tStart)}, p2={t:tFinish,c:lineVal(line,tFinish)};
+      svg.appendChild(el("line",{x1:xToPx(p1.t,W,innerW),y1:yToPx(p1.c,H,innerH),x2:xToPx(p2.t,W,innerW),y2:yToPx(p2.c,H,innerH),stroke:color,"stroke-width":2.5,"stroke-dasharray":"5,4"}));
+      return line;
+    }
+
+    if(phase==="data"){
+      plotData.forEach(d=> drawClickable(d,true,-1,"#5E6A71",null));
+    }
+    if(phase==="elim"){
+      plotData.forEach(d=>{
+        const isSel=selectedElim.some(p=>p.t===d.t), order=selectedElim.findIndex(p=>p.t===d.t);
+        drawClickable(d,isSel,order,"#981E32",()=>{ toggleSelect(selectedElim,d,3); render(); });
+      });
+      if(selectedElim.length===3) drawLineThrough(selectedElim,"#981E32");
+    }
+    if(phase==="resid" || phase==="done"){
+      if(selectedElim.length===3){
+        const elimLine=fitLine(selectedElim);
+        const cutoffT=residualCutoff(selectedElim);
+        residuals=computeResiduals(elimLine,cutoffT);
+        plotData.forEach(d=>{
+          const cx=xToPx(d.t,W,innerW), cy=yToPx(d.c,H,innerH);
+          svg.appendChild(el("circle",{cx,cy,r:5,fill:"#c7cdd3",stroke:"white","stroke-width":1}));
+        });
+        const p1={t:0,c:lineVal(elimLine,0)}, p2={t:T_MAX,c:lineVal(elimLine,T_MAX)};
+        svg.appendChild(el("line",{x1:xToPx(p1.t,W,innerW),y1:yToPx(p1.c,H,innerH),x2:xToPx(p2.t,W,innerW),y2:yToPx(p2.c,H,innerH),stroke:"#c7cdd3","stroke-width":2,"stroke-dasharray":"5,4"}));
+        residuals.forEach(r=>{
+          const isSel=selectedAbs.some(p=>p.t===r.t), order=selectedAbs.findIndex(p=>p.t===r.t);
+          drawClickable({t:r.t,c:r.resid},isSel,order,"#3f7a52",()=>{ toggleSelect(selectedAbs,{t:r.t,c:r.resid},3); render(); });
+        });
+        if(selectedAbs.length===3) drawLineThrough(selectedAbs,"#3f7a52");
+      }
+    }
+    renderSubtabs();
+    renderControls();
+    renderDataPanel();
+  }
+
+  // ---- Sub-tab navigation (free jump between Setup / Step 1 / Step 2 / Step 3) ----
+  function renderSubtabs(){
+    const c = document.getElementById("morSubtabs");
+    const tabs = [
+      {id:"data", label:"Setup Data"},
+      {id:"elim", label:"Step 1"},
+      {id:"resid", label:"Step 2"},
+      {id:"done", label:"Step 3"}
+    ];
+    c.innerHTML = tabs.map(t=>`<button data-phase="${t.id}" class="${phase===t.id?"active":""}">${t.label}</button>`).join("");
+    c.querySelectorAll("button").forEach(btn=>{
+      btn.onclick = ()=>{ phase = btn.dataset.phase; render(); };
+    });
+  }
+
+  // ---- Step readout panel (K/ka values, lock/clear buttons) ----
+  function renderControls(){
+    const c=document.getElementById("morControls");
+    const cap=document.getElementById("morCaption");
+    let html="";
+    if(phase==="data"){
+      cap.textContent = "Choose a built-in dataset, upload a CSV/Excel file, or edit the table directly \u2014 then continue to Step 1.";
+      html = `<div class="step-label">Setup</div>
+        <p class="hint">Choose a dataset, upload a file, or edit the table below.</p>`;
+    } else if(phase==="elim"){
+      cap.textContent="Click three points on the terminal (elimination) decline \u2014 the fit follows exactly the points you pick.";
+      html=`<div class="step-label">Step 1 of 3 — elimination-phase points</div>
+        <p class="hint">${selectedElim.length}/3 selected</p>`;
+      if(selectedElim.length===3){
+        const line=fitLine(selectedElim); const K=-line.slope, thalf=0.693/K;
+        html+=`<div class="out-grid">
+            <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value">${fmt(K,4)}</span><span class="unit">h<sup>-1</sup></span></div></div>
+            <div class="out-card"><div class="label">t\u00bd,elim</div><div class="value-row"><span class="value">${fmt(thalf)}</span><span class="unit">h</span></div></div>
+          </div>
+          <button class="btn primary small" id="morLock">Use these points \u2192</button>`;
+      }
+      html+=`<button class="btn small" id="morClear" style="margin-top:8px;">Clear</button>`;
+    } else if(phase==="resid"){
+      cap.textContent="Click three residual points to define the absorption line \u2014 residual values are listed in the table.";
+      if(selectedElim.length<3){
+        html = `<div class="step-label">Step 2 of 3 — absorption-phase points</div>
+          <p class="hint">Complete Step 1 first (select 3 elimination points) \u2014 the residuals are computed from that line.</p>`;
+      } else {
+        html=`<div class="step-label">Step 2 of 3 — absorption-phase points</div>
+          <p class="hint">${selectedAbs.length}/3 selected \u2014 residual values are in the table below. Only points <b>before C<sub>max</sub></b> are shown: past the peak the drug is already declining, so a "residual" there wouldn't reflect true absorption kinetics.</p>`;
+        if(selectedAbs.length===3){
+          const line=fitLine(selectedAbs); const ka=-line.slope, thalf=0.693/ka;
+          html+=`<div class="out-grid">
+              <div class="out-card"><div class="label">k<sub>a</sub></div><div class="value-row"><span class="value">${fmt(ka,3)}</span><span class="unit">h<sup>-1</sup></span></div></div>
+              <div class="out-card"><div class="label">t\u00bd,abs</div><div class="value-row"><span class="value">${fmt(thalf)}</span><span class="unit">h</span></div></div>
+            </div>
+            <button class="btn primary small" id="morDone">Summary \u2192</button>`;
+        }
+        html+=`<button class="btn small" id="morClearAbs" style="margin-top:8px;">Clear</button>`;
+      }
+    } else {
+      cap.textContent="Summary \u2014 K and ka computed from the lines you fit in Steps 1 and 2.";
+      if(selectedElim.length<3 || selectedAbs.length<3){
+        html = `<div class="step-label">Step 3 of 3 — summary</div>
+          <p class="hint">Finish Steps 1 and 2 first to see the summary here.</p>`;
+      } else {
+        const eline=fitLine(selectedElim), K=-eline.slope, thalf=0.693/K;
+        const aline=fitLine(selectedAbs), ka=-aline.slope, thalfa=0.693/ka;
+        const ratio = ka/K;
+        const verdict = ratio>1
+          ? `k<sub>a</sub> &gt; K \u2014 absorption is faster than elimination, consistent with <b>normal kinetics</b>.`
+          : `k<sub>a</sub> &lt; K \u2014 absorption is slower than elimination here, consistent with <b>flip-flop kinetics</b> (the terminal slope reflects k<sub>a</sub>, not K).`;
+        html=`<div class="step-label">Step 3 of 3 — summary</div>
+          <div class="out-grid">
+            <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value">${fmt(K,4)}</span><span class="unit">h<sup>-1</sup></span></div></div>
+            <div class="out-card"><div class="label">t\u00bd,elim</div><div class="value-row"><span class="value">${fmt(thalf)}</span><span class="unit">h</span></div></div>
+            <div class="out-card"><div class="label">k<sub>a</sub></div><div class="value-row"><span class="value">${fmt(ka,3)}</span><span class="unit">h<sup>-1</sup></span></div></div>
+            <div class="out-card"><div class="label">t\u00bd,abs</div><div class="value-row"><span class="value">${fmt(thalfa)}</span><span class="unit">h</span></div></div>
+          </div>
+          <div class="readout" style="margin-top:10px; font-size:0.98rem;">k<sub>a</sub> is ${fmt(ratio,1)}\u00d7 K. ${verdict}</div>`;
+      }
+    }
+    c.innerHTML=html;
+    if(document.getElementById("morClear")) document.getElementById("morClear").onclick=()=>{selectedElim=[];render();};
+    if(document.getElementById("morClearAbs")) document.getElementById("morClearAbs").onclick=()=>{selectedAbs=[];render();};
+    if(document.getElementById("morLock")) document.getElementById("morLock").onclick=()=>{phase="resid";selectedAbs=[];render();};
+    if(document.getElementById("morDone")) document.getElementById("morDone").onclick=()=>{phase="done";render();};
+  }
+
+  // ---- Data panel: Setup tab (dataset picker / upload / editable table), or the
+  // persistent read-only master table (t, C, Residual) for the other three tabs ----
+  let uploadStatus = {text:"No file chosen", cls:""};
+  function setUploadStatus(text, cls){ uploadStatus = {text, cls: cls||""}; }
+
+  function loadRows(newRows, label){
+    dataRows = newRows.map(d=>({...d}));
+    activeDatasetIdx = -1; // custom / uploaded, not tied to a preset anymore
+    activeUnit = "mg/L"; // unit of an uploaded/custom file isn't knowable — default assumption
+    recomputeDataset();
+    selectedElim=[]; selectedAbs=[]; residuals=[];
+    render();
+  }
+
+  function parseCSVText(text){
+    return text.split(/\r?\n/).map(line=>line.split(/,|\t/)).map(cols=>({
+      t: parseFloat(cols[0]), c: parseFloat(cols[1])
+    })).filter(d=>isFinite(d.t) && isFinite(d.c));
+  }
+
+  function handleFileUpload(file){
+    const ext = file.name.split(".").pop().toLowerCase();
+    if(ext==="csv" || ext==="txt"){
+      const reader = new FileReader();
+      reader.onload = (e)=>{
+        const rows = parseCSVText(e.target.result);
+        if(rows.length<2){ setUploadStatus("Couldn't find at least 2 numeric (time, concentration) rows in that file.","error"); render(); return; }
+        setUploadStatus(`Loaded ${rows.length} points from ${file.name}.`,"success");
+        loadRows(rows);
+      };
+      reader.onerror = ()=>{ setUploadStatus("Couldn't read that file.","error"); render(); };
+      reader.readAsText(file);
+    } else if(ext==="xlsx" || ext==="xls"){
+      if(typeof XLSX==="undefined"){
+        setUploadStatus("Excel support didn't load (needs an internet connection) \u2014 try a CSV instead.","error");
+        render();
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e)=>{
+        try{
+          const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array"});
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const aoa = XLSX.utils.sheet_to_json(sheet, {header:1});
+          const rows = aoa.map(r=>({t:parseFloat(r[0]), c:parseFloat(r[1])})).filter(d=>isFinite(d.t)&&isFinite(d.c));
+          if(rows.length<2){ setUploadStatus("Couldn't find at least 2 numeric (time, concentration) rows in that file.","error"); render(); return; }
+          setUploadStatus(`Loaded ${rows.length} points from ${file.name}.`,"success");
+          loadRows(rows);
+        }catch(err){
+          setUploadStatus("Couldn't parse that Excel file.","error"); render();
+        }
+      };
+      reader.onerror = ()=>{ setUploadStatus("Couldn't read that file.","error"); render(); };
+      reader.readAsArrayBuffer(file);
+    } else {
+      setUploadStatus("Please upload a .csv or .xlsx file.","error");
+      render();
+    }
+  }
+
+  function renderDataPanel(){
+    const el2 = document.getElementById("morDataPanel");
+    if(phase==="data"){
+      const rowsHtml = dataRows.map((d,i)=>`
+        <tr>
+          <td><input type="number" step="any" class="cell mor-t-input" data-i="${i}" value="${isFinite(d.t)?d.t:""}"></td>
+          <td><input type="number" step="any" class="cell mor-c-input" data-i="${i}" value="${isFinite(d.c)?d.c:""}"></td>
+          <td><button class="btn small" data-i="${i}" id="morRm${i}">\u2715</button></td>
+        </tr>`).join("");
+      el2.innerHTML = `
+        <div class="mor-setup-row">
+          <div class="mor-setup-field">
+            <label>Dataset</label>
+            <select id="morDatasetSelect">
+              ${DATASETS.map((d,i)=>`<option value="${i}" ${activeDatasetIdx===i?"selected":""}>${d.name}</option>`).join("")}
+              <option value="-1" ${activeDatasetIdx===-1?"selected":""}>Custom / uploaded</option>
+            </select>
+          </div>
+          <div class="mor-or">or</div>
+          <div class="mor-setup-field">
+            <label>Upload file</label>
+            <input type="file" id="morFileInput" accept=".csv,.txt,.xlsx,.xls" style="display:none;">
+            <button type="button" class="btn small" id="morFileBtn">Choose File</button>
+            <p class="mor-upload-status ${uploadStatus.cls}" id="morUploadStatus">${uploadStatus.text}</p>
+          </div>
+        </div>
+        <p class="hint">${plotData.length} valid point${plotData.length===1?"":"s"} ready to plot (t=0 rows and blanks are ignored).</p>
+        <button class="btn primary small" id="morContinue" ${plotData.length<4?"disabled":""}>Continue to Step 1 \u2192</button>
+        <h4 style="margin-top:16px;">Edit data</h4>
+        <table class="compact"><tr><th>t (h)</th><th>C (${activeUnit})</th><th></th></tr>${rowsHtml}</table>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn small" id="morAddRow">+ Add point</button>
+        </div>
+      `;
+      dataRows.forEach((d,i)=>{
+        const tIn = el2.querySelector(`.mor-t-input[data-i="${i}"]`);
+        const cIn = el2.querySelector(`.mor-c-input[data-i="${i}"]`);
+        tIn.addEventListener("change",()=>{ dataRows[i].t=parseFloat(tIn.value); activeDatasetIdx=-1; recomputeDataset(); render(); });
+        cIn.addEventListener("change",()=>{ dataRows[i].c=parseFloat(cIn.value); activeDatasetIdx=-1; recomputeDataset(); render(); });
+        const rmBtn = document.getElementById("morRm"+i);
+        if(rmBtn) rmBtn.onclick = ()=>{ dataRows.splice(i,1); activeDatasetIdx=-1; recomputeDataset(); render(); };
+      });
+      document.getElementById("morAddRow").onclick = ()=>{ dataRows.push({t:NaN,c:NaN}); activeDatasetIdx=-1; render(); };
+      document.getElementById("morDatasetSelect").onchange = (e)=>{
+        const idx = parseInt(e.target.value);
+        if(idx>=0){
+          activeDatasetIdx=idx; activeUnit=DATASETS[idx].unit;
+          document.querySelectorAll("#morUnitToggle button").forEach(b=>b.classList.toggle("active", b.dataset.unit===activeUnit));
+          dataRows = DATASETS[idx].rows.map(d=>({...d})); recomputeDataset(); selectedElim=[]; selectedAbs=[]; residuals=[]; setUploadStatus("No file chosen",""); render();
+        }
+      };
+      const fileInput = document.getElementById("morFileInput");
+      document.getElementById("morFileBtn").onclick = ()=> fileInput.click();
+      fileInput.addEventListener("change", ()=>{
+        if(fileInput.files && fileInput.files[0]) handleFileUpload(fileInput.files[0]);
+      });
+      const contBtn = document.getElementById("morContinue");
+      if(contBtn) contBtn.onclick = ()=>{
+        recomputeDataset();
+        if(plotData.length<4) return;
+        phase="elim"; render();
+      };
+    } else {
+      // Persistent master table: t, C, the elimination line's predicted C at
+      // that t, and the Residual (line \u2212 actual) so the subtraction is
+      // visible rather than the residual just appearing from nowhere. Rows
+      // highlight (not a numbered column) to show which points fed which line.
+      const elimSel = selectedElim.map(p=>p.t);
+      const absSel = selectedAbs.map(p=>p.t);
+      let elimLine=null, cutoffT=null;
+      if(selectedElim.length===3){ elimLine=fitLine(selectedElim); cutoffT=residualCutoff(selectedElim); }
+      const rowsHtml = plotData.map(d=>{
+        let rowClass="";
+        if(elimSel.includes(d.t)) rowClass="row-elim";
+        else if(absSel.includes(d.t)) rowClass="row-abs";
+        let lineCell = "\u2014", residCell = "\u2014";
+        if(elimLine){
+          const lv = lineVal(elimLine, d.t);
+          lineCell = fmt(lv);
+          if(d.t>0 && d.t<cutoffT){
+            const r = lv - d.c;
+            residCell = r>0 ? fmt(r) : "\u2014";
+          }
+        }
+        return `<tr class="${rowClass}"><td>${d.t}</td><td>${d.c}</td><td>${lineCell}</td><td>${residCell}</td></tr>`;
+      }).join("");
+      el2.innerHTML = `
+        <h4>Data</h4>
+        <table class="master-table"><tr><th>t (h)</th><th>C (${activeUnit})</th><th>Line C (${activeUnit})</th><th>Residual (${activeUnit})</th></tr>${rowsHtml}</table>
+        <p class="hint" style="margin-top:8px;"><span style="color:#981E32;font-weight:700;">\u25a0</span> selected for elimination line &nbsp;
+          <span style="color:#3f7a52;font-weight:700;">\u25a0</span> selected for absorption line</p>
+      `;
+    }
+  }
+
+  // Toggling the unit rescales the actual data (not just labels) — safe to do
+  // because K and k\u2090 are both derived from the SLOPE of ln(concentration) vs
+  // time, and a constant multiplicative rescaling of concentration shifts every
+  // ln(c) by the same additive constant (ln(1000)), leaving the slope, and
+  // therefore K/k\u2090, completely unchanged.
+  function setUnit(newUnit){
+    if(newUnit===activeUnit) return;
+    const factor = newUnit==="ng/mL" ? 1000 : 0.001;
+    dataRows = dataRows.map(d=> isFinite(d.c) ? {t:d.t, c:d.c*factor} : d);
+    // selectedElim/selectedAbs are their own snapshot objects (the exact points
+    // the student clicked) — separate from dataRows, so they must be rescaled
+    // too, or the fitted lines keep using stale, unconverted concentration
+    // values while the axis and data points around them switch units.
+    selectedElim = selectedElim.map(p=>({t:p.t, c:p.c*factor}));
+    selectedAbs = selectedAbs.map(p=>({t:p.t, c:p.c*factor}));
+    activeUnit = newUnit;
+    document.querySelectorAll("#morUnitToggle button").forEach(b=>b.classList.toggle("active", b.dataset.unit===activeUnit));
+    recomputeDataset();
+    render();
+  }
+
+  function startOver(){
+    if(activeDatasetIdx<0) activeDatasetIdx=0;
+    dataRows = DATASETS[activeDatasetIdx].rows.map(d=>({...d}));
+    activeUnit = DATASETS[activeDatasetIdx].unit;
+    document.querySelectorAll("#morUnitToggle button").forEach(b=>b.classList.toggle("active", b.dataset.unit===activeUnit));
+    recomputeDataset();
+    phase="data"; selectedElim=[]; selectedAbs=[]; residuals=[];
+    setUploadStatus("No file chosen","");
+    render();
+  }
+
+  function init(){
+    recomputeDataset();
+    phase="data"; selectedElim=[]; selectedAbs=[]; residuals=[];
+    document.getElementById("morStartOverBtn").onclick = startOver;
+    document.querySelectorAll("#morUnitToggle button").forEach(btn=>{
+      btn.onclick = ()=> setUnit(btn.dataset.unit);
+    });
+    render();
+  }
+  return {init};
+})();
+
+/* ============================================================
+   CASE STUDIES TAB
+   ============================================================ */
+const CaseStudies = (function(){
+  // ---- shared helpers ----
+  function roundNice(t){
+    if(t<1) return Math.round(t*4)/4;
+    if(t<10) return Math.round(t*2)/2;
+    return Math.round(t);
+  }
+  function generateTrapTimes(tmax){
+    const start = roundNice(Math.max(0.5, tmax));
+    return [start, roundNice(start*2), roundNice(start*4), roundNice(start*8), roundNice(start*16), roundNice(start*32)];
+  }
+  function gradeInputs(ids, corrects, tolFrac){
+    tolFrac = tolFrac===undefined ? 0.08 : tolFrac;
+    let allCorrect = true;
+    ids.forEach((id,i)=>{
+      const inp = document.getElementById(id);
+      if(!inp) return;
+      const val = parseFloat(inp.value);
+      const correct = corrects[i];
+      inp.classList.remove("correct","incorrect");
+      if(isNaN(val)){ allCorrect=false; return; }
+      if(Math.abs(val-correct) <= Math.max(correct*tolFrac, 0.001)) inp.classList.add("correct");
+      else { inp.classList.add("incorrect"); allCorrect=false; }
+    });
+    return allCorrect;
+  }
+  function revealInputs(ids, corrects, decimals){
+    ids.forEach((id,i)=>{
+      const inp = document.getElementById(id);
+      if(!inp) return;
+      inp.value = fmt(corrects[i], decimals && decimals[i]!==undefined ? decimals[i] : 3);
+      inp.classList.remove("incorrect"); inp.classList.add("correct");
+    });
+  }
+  function trapCorrectRows(times, concs){
+    const pts = [{t:0,c:0}, ...times.map((t,i)=>({t,c:concs[i]}))];
+    const rows=[];
+    for(let i=1;i<pts.length;i++){
+      const mean=(pts[i-1].c+pts[i].c)/2, dt=pts[i].t-pts[i-1].t;
+      rows.push({mean, dt, auc:mean*dt});
+    }
+    return rows;
+  }
+  function renderTrapTable(tableId, times, concs, unit){
+    const rows = trapCorrectRows(times, concs);
+    let html = `<tr><th>t (h)</th><th>C (${unit})</th><th>(C\u2081+C\u2082)/2</th><th>interval AUC</th></tr>`;
+    html += `<tr><td>0</td><td>0</td><td>\u2014</td><td>\u2014</td></tr>`;
+    times.forEach((t,i)=>{
+      html += `<tr><td>${t}</td><td>${fmt(concs[i])}</td>
+        <td><input class="cell" id="${tableId}_mean${i}" type="number" step="any"></td>
+        <td><input class="cell" id="${tableId}_auc${i}" type="number" step="any"></td></tr>`;
+    });
+    document.getElementById(tableId).innerHTML = html;
+    return rows;
+  }
+  function checkTrapTable(tableId, rows){
+    const ids=[], corrects=[];
+    rows.forEach((r,i)=>{ ids.push(`${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.mean, r.auc); });
+    return gradeInputs(ids, corrects, 0.06);
+  }
+  function revealTrapTable(tableId, rows){
+    const ids=[], corrects=[];
+    rows.forEach((r,i)=>{ ids.push(`${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.mean, r.auc); });
+    revealInputs(ids, corrects);
+  }
+
+  // ---- Case 1: randomized generic scenario (mg/L) ----
+  const RANDOM_ANCHORS = [
+    { F:0.60, ka:0.854, Vd:26, Cl:17.7, doses:[125,250,375,500] },
+    { F:0.33, ka:2.19,  Vd:32, Cl:11.1, doses:[25,50,75,100] },
+    { F:0.44, ka:3.04,  Vd:98, Cl:17.0, doses:[25,50,75,100] },
+    { F:0.50, ka:0.76,  Vd:82, Cl:8.7,  doses:[25,50,75,100] },
+    { F:0.99, ka:2.15,  Vd:82, Cl:8.1,  doses:[250,375,500,750] }
+  ];
+  function jitter(){ return 0.8 + Math.random()*0.4; }
+  let c1 = null;
+
+  function generateC1(){
+    const a = RANDOM_ANCHORS[Math.floor(Math.random()*RANDOM_ANCHORS.length)];
+    const dose = a.doses[Math.floor(Math.random()*a.doses.length)];
+    const F = Math.min(1, Math.round(a.F*jitter()*100)/100);
+    const ka = Math.round(a.ka*jitter()*1000)/1000;
+    const Vd = Math.round(a.Vd*jitter());
+    const Cl = Math.round(a.Cl*jitter()*100)/100;
+    const K = Cl/Vd;
+    const tmax = tmaxVal(ka,K);
+    const cmax = batemanC(F,dose,ka,Vd,K,tmax);
+    const auc = F*dose/Cl;
+    const times = generateTrapTimes(tmax);
+    const concs = times.map(t=>batemanC(F,dose,ka,Vd,K,t));
+    c1 = {dose,F,ka,Vd,Cl,K,tmax,cmax,auc,times,concs};
+  }
+
+  function renderC1(){
+    document.getElementById("c1Given").innerHTML =
+      `<b>Dose (X\u2080)</b> = ${c1.dose} mg &nbsp; <b>F</b> = ${c1.F} &nbsp; <b>k\u2090</b> = ${c1.ka} h<sup>-1</sup> &nbsp; <b>V<sub>d</sub></b> = ${c1.Vd} L &nbsp; <b>Cl</b> = ${c1.Cl} L/h`;
+    document.getElementById("c1FormulaTable").innerHTML = `
+      <tr><th>Quantity</th><th>Your answer</th><th>Unit</th></tr>
+      <tr><td>K = Cl / V<sub>d</sub></td><td><input class="cell" id="c1_K" type="number" step="any"></td><td>h<sup>-1</sup></td></tr>
+      <tr><td>t<sub>max</sub> = ln(k\u2090/K)/(k\u2090\u2212K)</td><td><input class="cell" id="c1_tmax" type="number" step="any"></td><td>h</td></tr>
+      <tr><td>C<sub>max</sub> (from the equation)</td><td><input class="cell" id="c1_cmax" type="number" step="any"></td><td>mg/L</td></tr>
+      <tr><td>AUC = F\u00b7X\u2080/Cl</td><td><input class="cell" id="c1_auc" type="number" step="any"></td><td>mg\u00b7h/L</td></tr>
+    `;
+    document.getElementById("c1TrapSummary").innerHTML = "";
+    c1.trapRows = renderTrapTable("c1TrapTable", c1.times, c1.concs, "mg/L");
+  }
+
+  function c1FormulaIds(){ return ["c1_K","c1_tmax","c1_cmax","c1_auc"]; }
+  function c1FormulaCorrects(){ return [c1.K, c1.tmax, c1.cmax, c1.auc]; }
+
+  function c1TrapSummary(){
+    const sumTrap = c1.trapRows.reduce((a,r)=>a+r.auc,0);
+    const lastC = c1.concs[c1.concs.length-1];
+    const tailAUC = lastC/c1.K;
+    const total = sumTrap + tailAUC;
+    document.getElementById("c1TrapSummary").innerHTML =
+      `<b>Trapezoidal AUC (0\u2192${c1.times[c1.times.length-1]}h)</b> = ${fmt(sumTrap)} mg\u00b7h/L<br>
+       <b>Tail AUC (t\u2192\u221e)</b> = C<sub>last</sub>/K = ${fmt(lastC)}/${fmt(c1.K,4)} = ${fmt(tailAUC)} mg\u00b7h/L<br>
+       <b>Total AUC (trapezoidal)</b> = ${fmt(total)} mg\u00b7h/L<br>
+       <b>AUC from Step 1 (F\u00b7X\u2080/Cl)</b> = ${fmt(c1.auc)} mg\u00b7h/L
+       ${Math.abs(total-c1.auc)<=c1.auc*0.1 ? '<br><span style="color:var(--safe);font-weight:700;">\u2713 These agree \u2014 nice, independent confirmation.</span>' : '<br><span style="color:var(--warn);font-weight:700;">\u26a0 These don\u2019t agree well \u2014 check your trapezoidal calculations.</span>'}`;
+  }
+
+  // ---- Case 2: Amoxicillin 1000 mg (fixed, unit conversion) ----
+  const AMX = { F:0.60, X0:1000, ka:0.854, Vd:26, Cl:17.7 };
+  AMX.K = AMX.Cl/AMX.Vd;
+  AMX.tmax = tmaxVal(AMX.ka, AMX.K);
+  AMX.cmaxMgL = batemanC(AMX.F, AMX.X0, AMX.ka, AMX.Vd, AMX.K, AMX.tmax);
+  AMX.aucMgL = AMX.F*AMX.X0/AMX.Cl;
+  AMX.times = generateTrapTimes(AMX.tmax);
+  AMX.concsMgL = AMX.times.map(t=>batemanC(AMX.F,AMX.X0,AMX.ka,AMX.Vd,AMX.K,t));
+  AMX.concsNgML = AMX.concsMgL.map(c=>c*1000);
+  let amxTrapRows = null;
+
+  function renderC2(){
+    document.getElementById("c2FormulaTable").innerHTML = `
+      <tr><th>Quantity</th><th>Your answer</th><th>Unit</th></tr>
+      <tr><td>K = Cl / V<sub>d</sub></td><td><input class="cell" id="c2_K" type="number" step="any"></td><td>h<sup>-1</sup></td></tr>
+      <tr><td>t<sub>max</sub></td><td><input class="cell" id="c2_tmax" type="number" step="any"></td><td>h</td></tr>
+      <tr><td>C<sub>max</sub> (from the equation)</td><td><input class="cell" id="c2_cmaxMgL" type="number" step="any"></td><td>mg/L</td></tr>
+      <tr><td>C<sub>max</sub> \u2014 <b>converted</b></td><td><input class="cell" id="c2_cmaxNgML" type="number" step="any"></td><td>ng/mL</td></tr>
+      <tr><td>AUC = F\u00b7X\u2080/Cl</td><td><input class="cell" id="c2_aucMgL" type="number" step="any"></td><td>mg\u00b7h/L</td></tr>
+      <tr><td>AUC \u2014 <b>converted</b></td><td><input class="cell" id="c2_aucNgML" type="number" step="any"></td><td>ng\u00b7h/mL</td></tr>
+    `;
+    amxTrapRows = renderTrapTable("c2TrapTable", AMX.times, AMX.concsNgML, "ng/mL");
+  }
+  function c2FormulaIds(){ return ["c2_K","c2_tmax","c2_cmaxMgL","c2_cmaxNgML","c2_aucMgL","c2_aucNgML"]; }
+  function c2FormulaCorrects(){ return [AMX.K, AMX.tmax, AMX.cmaxMgL, AMX.cmaxMgL*1000, AMX.aucMgL, AMX.aucMgL*1000]; }
+
+  function c2TrapSummary(){
+    const sumTrap = amxTrapRows.reduce((a,r)=>a+r.auc,0);
+    const lastC = AMX.concsNgML[AMX.concsNgML.length-1];
+    const tailAUC = lastC/AMX.K;
+    const total = sumTrap + tailAUC;
+    const aucNgML = AMX.aucMgL*1000;
+    document.getElementById("c2TrapSummary").innerHTML =
+      `<b>Trapezoidal AUC (0\u2192${AMX.times[AMX.times.length-1]}h)</b> = ${fmt(sumTrap)} ng\u00b7h/mL<br>
+       <b>Tail AUC (t\u2192\u221e)</b> = C<sub>last</sub>/K = ${fmt(lastC)}/${fmt(AMX.K,4)} = ${fmt(tailAUC)} ng\u00b7h/mL<br>
+       <b>Total AUC (trapezoidal)</b> = ${fmt(total)} ng\u00b7h/mL<br>
+       <b>AUC from Step 1 (converted)</b> = ${fmt(aucNgML)} ng\u00b7h/mL
+       ${Math.abs(total-aucNgML)<=aucNgML*0.1 ? '<br><span style="color:var(--safe);font-weight:700;">\u2713 These agree \u2014 nice, independent confirmation.</span>' : '<br><span style="color:var(--warn);font-weight:700;">\u26a0 These don\u2019t agree well \u2014 check your trapezoidal calculations.</span>'}`;
+  }
+
+  function init(){
+    generateC1();
+    renderC1();
+    document.getElementById("c1GenerateBtn").onclick = ()=>{ generateC1(); renderC1(); };
+    document.getElementById("c1CheckBtn").onclick = ()=> gradeInputs(c1FormulaIds(), c1FormulaCorrects());
+    document.getElementById("c1RevealBtn").onclick = ()=> revealInputs(c1FormulaIds(), c1FormulaCorrects(), [4,2,3,2]);
+    document.getElementById("c1TrapCheckBtn").onclick = ()=>{ checkTrapTable("c1TrapTable", c1.trapRows); c1TrapSummary(); };
+    document.getElementById("c1TrapRevealBtn").onclick = ()=>{ revealTrapTable("c1TrapTable", c1.trapRows); c1TrapSummary(); };
+
+    renderC2();
+    document.getElementById("c2CheckBtn").onclick = ()=> gradeInputs(c2FormulaIds(), c2FormulaCorrects());
+    document.getElementById("c2RevealBtn").onclick = ()=> revealInputs(c2FormulaIds(), c2FormulaCorrects(), [4,2,3,1,3,1]);
+    document.getElementById("c2TrapCheckBtn").onclick = ()=>{ checkTrapTable("c2TrapTable", amxTrapRows); c2TrapSummary(); };
+    document.getElementById("c2TrapRevealBtn").onclick = ()=>{ revealTrapTable("c2TrapTable", amxTrapRows); c2TrapSummary(); };
+  }
+  return {init};
+})();
+
+/* ============================================================
+   ASSESSMENT TAB
+   ============================================================ */
+const Assessment = (function(){
+  const mcqs = [
+    {
+      q: "A drug is available as an oral tablet and capsule with the same dose. k<sub>a</sub>(capsule) \u226b k<sub>a</sub>(tablet). Compared to the tablet, the capsule will have:",
+      opts: [
+        "lower C<sub>max</sub>, longer t<sub>max</sub>, larger AUC",
+        "lower C<sub>max</sub>, longer t<sub>max</sub>, equal AUC",
+        "higher C<sub>max</sub>, shorter t<sub>max</sub>, equal AUC",
+        "higher C<sub>max</sub>, shorter t<sub>max</sub>, larger AUC"
+      ],
+      correct: 2,
+      explain: "A higher ka shifts Cmax up and tmax earlier, but AUC = F\u00b7X0/Cl is independent of ka \u2014 same dose and Cl means equal AUC."
+    },
+    {
+      q: "A fast-release and a slow-release formulation of the same drug are compared. If the fraction absorbed (F) is the same for both, their AUC values will be:",
+      opts: ["Different \u2014 the fast-release AUC is larger", "Different \u2014 the slow-release AUC is larger", "The same, regardless of absorption rate", "Impossible to determine without k<sub>a</sub>"],
+      correct: 2,
+      explain: "AUC = F\u00b7X0/Cl depends only on the extent absorbed and clearance, not on how fast absorption occurs."
+    },
+    {
+      q: "For a drug exhibiting flip-flop kinetics (k<sub>a</sub> \u226a K), the terminal log-linear slope of the plasma concentration-time curve reflects:",
+      opts: ["The true elimination rate constant, K", "The absorption rate constant, k<sub>a</sub>", "The average of k<sub>a</sub> and K", "Neither \u2014 the terminal phase is not log-linear"],
+      correct: 1,
+      explain: "When absorption is slower than elimination, absorption becomes rate-limiting: the slower process (ka) governs the terminal decline, not K."
+    },
+    {
+      q: "According to Fick's first law of diffusion (dX/dt = D\u00b7A\u00b7C<sub>s</sub>/h), which change would <b>increase</b> the rate of drug absorption?",
+      opts: ["Decreasing the membrane surface area (A)", "Increasing the membrane thickness (h)", "Increasing the membrane surface area (A)", "Decreasing the diffusion coefficient (D)"],
+      correct: 2,
+      explain: "Absorption rate is directly proportional to surface area (A) and diffusion coefficient (D), and inversely proportional to membrane thickness (h)."
+    },
+    {
+      q: "Nitroglycerin is administered sublingually rather than as a swallowed oral tablet primarily to:",
+      opts: ["Increase the drug's elimination half-life", "Avoid extensive first-pass hepatic metabolism", "Convert zero-order absorption to first-order", "Increase the volume of distribution"],
+      correct: 1,
+      explain: "The sublingual route absorbs directly into systemic venous circulation, bypassing the hepatic portal vein and the first-pass metabolism that would otherwise inactivate most of an oral dose."
+    },
+    {
+      q: "A drug has F<sub>gut</sub> = 0.80 (fraction absorbed by the GIT) and F<sub>liver</sub> = 0.50 (fraction surviving first-pass metabolism). Its overall oral bioavailability F is:",
+      opts: ["1.30", "0.90", "0.40", "0.65"],
+      correct: 2,
+      explain: "F = F_gut \u00d7 F_liver = 0.80 \u00d7 0.50 = 0.40."
+    },
+    {
+      q: "Drug administration by IV infusion is best described as following which order of input kinetics?",
+      opts: ["First-order", "Zero-order", "Second-order", "Mixed-order"],
+      correct: 1,
+      explain: "An IV infusion delivers drug at a constant rate (mass/time), independent of the amount remaining to be infused \u2014 the definition of zero-order input."
+    },
+    {
+      q: "Which of the following is <b>NOT</b> an assumption underlying the standard first-order oral absorption/elimination equation?",
+      opts: [
+        "The fraction absorbed (F\u00b7X\u2080) eventually reaches systemic circulation",
+        "Absorption begins immediately upon drug administration",
+        "The absorption rate constant, k\u2090, changes as the drug moves through different GIT segments",
+        "Absorption follows first-order kinetics with a constant k\u2090"
+      ],
+      correct: 2,
+      explain: "The model assumes ka is a single constant that does NOT change over time or location \u2014 in reality, permeability and pH do vary across GIT segments, which is exactly why this is a simplifying assumption, not a feature, of the model."
+    },
+    {
+      q: "If k<sub>a</sub> is decreased while K stays constant, what happens to t<sub>max</sub>?",
+      opts: ["t<sub>max</sub> increases (occurs later)", "t<sub>max</sub> decreases (occurs earlier)", "t<sub>max</sub> is unaffected", "t<sub>max</sub> becomes undefined"],
+      correct: 0,
+      explain: "Slower absorption takes longer to reach the point where the absorption and elimination rates are equal, so tmax shifts later."
+    },
+    {
+      q: "If K is increased (e.g., due to a drug interaction increasing clearance) while k<sub>a</sub> and dose stay constant, what happens to C<sub>max</sub>?",
+      opts: ["C<sub>max</sub> increases", "C<sub>max</sub> decreases", "C<sub>max</sub> is unaffected", "C<sub>max</sub> becomes equal to AUC"],
+      correct: 1,
+      explain: "Faster elimination competes with absorption throughout the rising phase, so less drug accumulates before the peak \u2014 Cmax falls (and tmax shortens) as K increases."
+    }
+  ];
+
+  // ---- Problem-based, randomized, fill-in-the-blank (Cmax / tmax / C(t) / AUC \u2014
+  // never residuals, which stay in the Method of Residuals tab). Same
+  // randomize-around-a-real-drug approach as Case Studies. ----
+  const ANCHORS = [
+    { F:0.60, ka:0.854, Vd:26, Cl:17.7, doses:[125,250,375,500] },
+    { F:0.33, ka:2.19,  Vd:32, Cl:11.1, doses:[25,50,75,100] },
+    { F:0.44, ka:3.04,  Vd:98, Cl:17.0, doses:[25,50,75,100] },
+    { F:0.50, ka:0.76,  Vd:82, Cl:8.7,  doses:[25,50,75,100] },
+    { F:0.99, ka:2.15,  Vd:82, Cl:8.1,  doses:[250,375,500,750] }
+  ];
+  function jitter(){ return 0.8 + Math.random()*0.4; }
+  function randomParams(){
+    const a = ANCHORS[Math.floor(Math.random()*ANCHORS.length)];
+    const dose = a.doses[Math.floor(Math.random()*a.doses.length)];
+    const F = Math.min(1, Math.round(a.F*jitter()*100)/100);
+    const ka = Math.round(a.ka*jitter()*1000)/1000;
+    const Vd = Math.round(a.Vd*jitter());
+    const Cl = Math.round(a.Cl*jitter()*100)/100;
+    return {dose,F,ka,Vd,Cl,K:Cl/Vd};
+  }
+  function givenText(p, extra){
+    return `Dose (X\u2080) = ${p.dose} mg, F = ${p.F}, k\u2090 = ${p.ka} h<sup>-1</sup>, V<sub>d</sub> = ${p.Vd} L, Cl = ${p.Cl} L/h${extra||""}`;
+  }
+
+  const PROBLEM_DEFS = [
+    { label:"Calculate C\u2098\u2090\u2093", unit:"mg/L", build(){
+        const p = randomParams();
+        const tmax = tmaxVal(p.ka,p.K);
+        const correct = batemanC(p.F,p.dose,p.ka,p.Vd,p.K,tmax);
+        return { prompt:`${givenText(p)}. Calculate C<sub>max</sub> using the appropriate equation.`, correct };
+    }},
+    { label:"Calculate t\u2098\u2090\u2093", unit:"h", build(){
+        const p = randomParams();
+        const correct = tmaxVal(p.ka,p.K);
+        return { prompt:`${givenText(p)}. Calculate t<sub>max</sub>.`, correct };
+    }},
+    { label:"Calculate C(t)", unit:"mg/L", build(){
+        const p = randomParams();
+        const t = Math.round((0.3+Math.random()*1.2)*tmaxVal(p.ka,p.K)*10)/10;
+        const correct = batemanC(p.F,p.dose,p.ka,p.Vd,p.K,t);
+        return { prompt:`${givenText(p)}. Calculate the plasma concentration at t = ${t} h.`, correct };
+    }},
+    { label:"Calculate AUC", unit:"mg\u00b7h/L", build(){
+        const p = randomParams();
+        const correct = p.F*p.dose/p.Cl;
+        return { prompt:`${givenText(p)}. Calculate the total AUC (0\u2192\u221e).`, correct };
+    }},
+    { label:"Calculate t\u2098\u2090\u2093 from half-life", unit:"h", build(){
+        const p = randomParams();
+        const t12 = Math.round((0.693/p.K)*100)/100;
+        const correct = tmaxVal(p.ka,p.K);
+        return { prompt:`Dose (X\u2080) = ${p.dose} mg, F = ${p.F}, k\u2090 = ${p.ka} h<sup>-1</sup>, elimination half-life = ${t12} h. First find K, then calculate t<sub>max</sub>.`, correct };
+    }}
+  ];
+  let problems = [];
+  function generateProblems(){ problems = PROBLEM_DEFS.map(def => Object.assign({label:def.label, unit:def.unit}, def.build())); }
+
+  function renderMcq(item, qi){
+    return `
+      <div class="card mcq" data-qi="${qi}">
+        <p><b>Q${qi+1}.</b> ${item.q}</p>
+        ${item.opts.map((o,oi)=>`<button class="opt" data-oi="${oi}">${o}</button>`).join("")}
+        <div class="feedback" style="display:none;"></div>
+      </div>`;
+  }
+  function renderNumeric(item, qi){
+    return `
+      <div class="card" data-pi="${qi}">
+        <p><b>Q${mcqs.length+qi+1}.</b> ${item.label} \u2014 <span id="asmt_prompt${qi}">${item.prompt}</span></p>
+        <div class="btn-row">
+          <input type="number" step="any" class="cell" id="asmt_p${qi}" style="width:110px;"> <span style="align-self:center;">${item.unit}</span>
+          <button class="btn primary small" id="asmt_check${qi}">Check</button>
+          <button class="btn small" id="asmt_new${qi}">\u21bb New numbers</button>
+        </div>
+        <div class="feedback" id="asmt_fb${qi}" style="display:none;"></div>
+      </div>`;
+  }
+
+  function render(){
+    generateProblems();
+    const container = document.getElementById("assessList");
+    let html = `<h3 style="margin-top:0;">Part A \u2014 Theoretical (${mcqs.length} questions)</h3>`;
+    html += mcqs.map(renderMcq).join("");
+    html += `<h3>Part B \u2014 Problem-Based (${problems.length} questions)</h3>
+      <p class="hint">Use the equations first. You can verify any of these against the Simulation tab by entering the same Dose, F, k\u2090, V<sub>d</sub>, and Cl. Each question can be reloaded with new numbers for extra practice.</p>`;
+    html += problems.map(renderNumeric).join("");
+    container.innerHTML = html;
+
+    container.querySelectorAll(".mcq").forEach(cardEl=>{
+      const qi = parseInt(cardEl.dataset.qi);
+      const item = mcqs[qi];
+      cardEl.querySelectorAll(".opt").forEach(btn=>{
+        btn.onclick = ()=>{
+          const oi = parseInt(btn.dataset.oi);
+          cardEl.querySelectorAll(".opt").forEach(b=>b.classList.remove("correct","incorrect"));
+          const fb = cardEl.querySelector(".feedback");
+          fb.style.display="block";
+          if(oi===item.correct){
+            btn.classList.add("correct");
+            fb.className="feedback correct";
+            fb.textContent = "Correct. " + item.explain;
+          } else {
+            btn.classList.add("incorrect");
+            cardEl.querySelectorAll(".opt")[item.correct].classList.add("correct");
+            fb.className="feedback incorrect";
+            fb.textContent = "Not quite. " + item.explain;
+          }
+        };
+      });
+    });
+
+    function wireProblem(qi){
+      const item = problems[qi];
+      document.getElementById(`asmt_check${qi}`).onclick = ()=>{
+        const val = parseFloat(document.getElementById(`asmt_p${qi}`).value);
+        const fb = document.getElementById(`asmt_fb${qi}`);
+        fb.style.display="block";
+        const ok = !isNaN(val) && Math.abs(val-item.correct) <= Math.max(item.correct*0.08, 0.005);
+        fb.className = "feedback " + (ok?"correct":"incorrect");
+        fb.textContent = (ok? "Correct. " : "Not quite. ") + `Answer: ${fmt(item.correct, 3)} ${item.unit}.`;
+      };
+      document.getElementById(`asmt_new${qi}`).onclick = ()=>{
+        problems[qi] = Object.assign({label:PROBLEM_DEFS[qi].label, unit:PROBLEM_DEFS[qi].unit}, PROBLEM_DEFS[qi].build());
+        document.getElementById(`asmt_prompt${qi}`).innerHTML = problems[qi].prompt;
+        const input = document.getElementById(`asmt_p${qi}`);
+        input.value = ""; input.classList.remove("correct","incorrect");
+        const fb = document.getElementById(`asmt_fb${qi}`);
+        fb.style.display="none"; fb.textContent="";
+        wireProblem(qi); // item reference changed, rebind handlers to the fresh object
+      };
+    }
+    problems.forEach((item,qi)=> wireProblem(qi));
+  }
+  return {init:render};
+})();
+
+/* ============================================================
+   TAB SWITCHING
+   ============================================================ */
+document.querySelectorAll("nav.tabs button").forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll("section.tabpanel").forEach(s=>s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-"+btn.dataset.tab).classList.add("active");
+    document.body.dataset.tab = btn.dataset.tab;
+  };
+});
+
+Sim.init();
+MOR.init();
+CaseStudies.init();
+Assessment.init();
+</script>
+</body>
+</html>
