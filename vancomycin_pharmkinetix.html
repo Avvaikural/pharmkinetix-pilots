@@ -80,6 +80,14 @@
   .eq-table td:first-child{font-family:'Atkinson Hyperlegible Mono', monospace; font-weight:700;}
   .eq-table tr.group-end td{border-bottom:2px solid var(--ink-soft);}
   .eq-note{font-size:0.88rem; color:var(--ink-soft);}
+  .hint{font-size:0.88rem; color:var(--ink-soft); font-style:italic;}
+  .var-key{display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; margin:12px 0 0;}
+  @media(max-width:600px){.var-key{grid-template-columns:1fr;}}
+  .var-key-sym{display:inline-block; min-width:2.6em; font-weight:700; color:var(--crimson-dark); font-family:'Atkinson Hyperlegible Mono', monospace;}
+  .assumptions-box{background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin-top:14px;}
+  .assumptions-box p{margin:0 0 6px; font-weight:700; font-size:0.92rem;}
+  .assumptions-box ul{margin:0; padding-left:20px;}
+  .assumptions-box li{margin-bottom:4px; font-size:0.95rem;}
 
   /* ---- Reusable control widget ---- */
   .ctrl{}
@@ -220,7 +228,39 @@
     <div class="panel theory">
       <h2><span class="dot"></span>The Model</h2>
       <p style="margin-top:0;">IV bolus → distributed into <strong>V<sub>d</sub></strong> (volume of distribution) → eliminated at rate <strong>Cl</strong> (clearance). One-compartment, first-order elimination.</p>
-      <p style="margin-bottom:0; font-size:0.95rem; color:var(--ink-soft);">Assumptions: instantaneous distribution (single well-stirred compartment) · open system (all drug eventually leaves) · linear (concentration-independent PK) · stationary (parameters don't change over the observation period).</p>
+      <svg viewBox="0 0 560 100" style="width:100%;max-width:560px;display:block;margin:10px auto;">
+        <rect x="10" y="25" width="150" height="55" rx="8" fill="#f4f2ec" stroke="#5E6A71"/>
+        <text x="85" y="47" text-anchor="middle" font-size="15" fill="#1F2430">IV Bolus</text>
+        <text x="85" y="64" text-anchor="middle" font-size="15" fill="#1F2430">dose (X<tspan font-size="11" baseline-shift="sub">0</tspan>)</text>
+        <line x1="160" y1="52" x2="260" y2="52" stroke="#981E32" stroke-width="2.5" marker-end="url(#arrowM1)"/>
+        <text x="210" y="40" text-anchor="middle" font-size="14" fill="#981E32">instant</text>
+        <rect x="260" y="25" width="170" height="55" rx="8" fill="#f4f2ec" stroke="#5E6A71"/>
+        <text x="345" y="47" text-anchor="middle" font-size="15" fill="#1F2430">Central</text>
+        <text x="345" y="64" text-anchor="middle" font-size="15" fill="#1F2430">compartment (V<tspan font-size="11" baseline-shift="sub">d</tspan>)</text>
+        <line x1="430" y1="52" x2="520" y2="52" stroke="#981E32" stroke-width="2.5" marker-end="url(#arrowM1)"/>
+        <text x="475" y="40" text-anchor="middle" font-size="15" fill="#981E32">Cl</text>
+        <text x="475" y="90" text-anchor="middle" font-size="14" fill="#1F2430">eliminated</text>
+        <defs><marker id="arrowM1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#981E32"/></marker></defs>
+      </svg>
+      <div class="var-key">
+        <div><span class="var-key-sym">C(t)</span> plasma concentration at time <i>t</i> (mg/L)</div>
+        <div><span class="var-key-sym">C<sub>0</sub></span> initial (t=0) concentration (mg/L)</div>
+        <div><span class="var-key-sym">X<sub>0</sub></span> administered IV bolus dose (mg)</div>
+        <div><span class="var-key-sym">V<sub>d</sub></span> volume of distribution (L)</div>
+        <div><span class="var-key-sym">Cl</span> clearance (L/h)</div>
+        <div><span class="var-key-sym">K</span> elimination rate constant (h<sup>-1</sup>)</div>
+        <div><span class="var-key-sym">t½</span> elimination half-life (h)</div>
+        <div><span class="var-key-sym">AUC</span> area under the concentration-time curve (mg·h/L)</div>
+      </div>
+      <div class="assumptions-box">
+        <p>Assumptions of this model:</p>
+        <ul>
+          <li><b>Instantaneous distribution</b> — the drug mixes uniformly into a single well-stirred compartment immediately upon administration.</li>
+          <li><b>Open system</b> — all administered drug eventually leaves the body (no permanent sequestration).</li>
+          <li><b>Linear (first-order) kinetics</b> — clearance and V<sub>d</sub> are concentration-independent; doubling the dose doubles the concentration at every timepoint.</li>
+          <li><b>Stationary parameters</b> — V<sub>d</sub> and Cl don't change over the observation period.</li>
+        </ul>
+      </div>
     </div>
 
     <div class="panel theory-eq">
@@ -298,13 +338,29 @@
         </div>
 
         <div class="panel outputs">
-          <h2><span class="dot"></span>Live Outputs</h2>
+          <h2><span class="dot"></span>Live Outputs — Active Patient</h2>
           <div class="out-grid">
             <div class="out-card"><div class="label">C₀</div><div class="value-row"><span class="value mono" id="outC0">--</span><span class="unit" id="outC0Unit">mg/L</span></div></div>
             <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value mono" id="outKe">--</span><span class="unit">h⁻¹</span></div></div>
             <div class="out-card"><div class="label">t½</div><div class="value-row"><span class="value mono" id="outThalf">--</span><span class="unit">hours</span></div></div>
             <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value mono" id="outAuc">--</span><span class="unit" id="outAucUnit">mg·h/L</span></div></div>
             </div>
+        </div>
+
+        <div class="panel outputs" id="refOutputsPanel" style="display:none; background:#F0F1F2; border-color:#DADDDF;">
+          <h2><span class="dot" style="background:var(--gray);"></span>Live Outputs — Reference Patient</h2>
+          <div class="out-grid">
+            <div class="out-card"><div class="label">C₀</div><div class="value-row"><span class="value mono" id="refOutC0" style="color:var(--gray);">--</span><span class="unit" id="refOutC0Unit">mg/L</span></div></div>
+            <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value mono" id="refOutKe" style="color:var(--gray);">--</span><span class="unit">h⁻¹</span></div></div>
+            <div class="out-card"><div class="label">t½</div><div class="value-row"><span class="value mono" id="refOutThalf" style="color:var(--gray);">--</span><span class="unit">hours</span></div></div>
+            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value mono" id="refOutAuc" style="color:var(--gray);">--</span><span class="unit" id="refOutAucUnit">mg·h/L</span></div></div>
+            </div>
+        </div>
+
+        <div class="panel outputs">
+          <h2><span class="dot"></span>Concentration-Time Table</h2>
+          <p class="hint" style="margin-top:-4px;">Reference column appears once a reference patient is set.</p>
+          <table id="concTimeTable"></table>
         </div>
 
         <div class="panel sim">
@@ -1182,6 +1238,25 @@ function updateHalfLifeTable(r, scale, unit){
   document.getElementById('halfLifeTable').innerHTML = html;
 }
 
+const CONC_TABLE_TIMES = [0.5,1,2,4,6,8,12,16,20,24,32,40,48];
+function updateConcTimeTable(activeR, refR, scale, unit, tMax){
+  const decimals = unit==='ng/mL' ? 0 : 2;
+  let times = CONC_TABLE_TIMES.filter(t=>t<=tMax);
+  if(tMax>48){ for(let t=60;t<=tMax;t+=12) times.push(t); }
+  if(!times.length || times[times.length-1]<tMax) times.push(tMax);
+  let html = `<tr><th>t (h)</th>${refR?`<th>Reference (${unit})</th>`:""}<th>Active (${unit})</th></tr>`;
+  times.forEach(t=>{
+    const cA = activeR.C0*Math.exp(-activeR.ke*t)*scale;
+    html += `<tr><td>${t}</td>`;
+    if(refR){
+      const cR = refR.C0*Math.exp(-refR.ke*t)*scale;
+      html += `<td>${cR.toFixed(decimals)}</td>`;
+    }
+    html += `<td>${cA.toFixed(decimals)}</td></tr>`;
+  });
+  document.getElementById('concTimeTable').innerHTML = html;
+}
+
 function renderSimulation(){
   const r = currentSimParams();
   const unit = simWindowCtrl.getUnit();
@@ -1196,9 +1271,23 @@ function renderSimulation(){
   document.getElementById('outC0Unit').textContent = unit;
   document.getElementById('outAucUnit').textContent = aucUnit;
 
+  const refPanel = document.getElementById('refOutputsPanel');
+  if(referenceR){
+    refPanel.style.display = '';
+    document.getElementById('refOutC0').textContent = (referenceR.C0*scale).toFixed(decimals);
+    document.getElementById('refOutKe').textContent = referenceR.ke.toFixed(3);
+    document.getElementById('refOutThalf').textContent = referenceR.thalf.toFixed(1);
+    document.getElementById('refOutAuc').textContent = (referenceR.auc*scale).toFixed(decimals);
+    document.getElementById('refOutC0Unit').textContent = unit;
+    document.getElementById('refOutAucUnit').textContent = aucUnit;
+  } else {
+    refPanel.style.display = 'none';
+  }
+
   simRuleMgr.render();
   renderChart(document.getElementById('pkSvg'), r, referenceR, simScaleMode, simTimeCtrl.getValue(), scale, unit, simWindowCtrl.getMec(), simWindowCtrl.getMtc());
   updateHalfLifeTable(r, scale, unit);
+  updateConcTimeTable(r, referenceR, scale, unit, simTimeCtrl.getValue());
 }
 
 setRefBtn.addEventListener('click', ()=>{
