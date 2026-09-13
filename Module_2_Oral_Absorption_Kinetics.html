@@ -555,6 +555,14 @@ function genCurve(F,X0,ka,VD,K,n){
   return pts;
 }
 function fmt(n,d){ d=(d===undefined)?2:d; return Number(n).toFixed(d); }
+// Rounds to AT MOST maxD decimals for display, without padding trailing zeros
+// (so 12.3 stays "12.3" while 12.345678 becomes "12.3457") — used anywhere a
+// raw data value (rather than a computed, fixed-precision result) is shown.
+function fmtMax(n, maxD){
+  if(!isFinite(n)) return "";
+  maxD = (maxD===undefined) ? 4 : maxD;
+  return parseFloat(Number(n).toFixed(maxD)).toString();
+}
 
 const SVGNS = "http://www.w3.org/2000/svg";
 function el(tag, attrs){
@@ -1283,20 +1291,15 @@ const MOR = (function(){
       {t:1.5,c:2347.4},{t:2,c:2138.2},{t:3,c:1499.7},{t:4,c:937.4},{t:6,c:311.3},
       {t:8,c:92.8},{t:10,c:26.2},{t:12,c:7.1}
     ]},
-    { name:"Losartan 50 mg (oral)", unit:"ng/mL", rows:[
-      {t:0,c:0},{t:0.25,c:207.4},{t:0.5,c:310.1},{t:0.75,c:353.8},{t:1,c:364.5},
-      {t:1.5,c:341.1},{t:2,c:298.4},{t:3,c:215.5},{t:4,c:152.8},{t:6,c:76.4},
-      {t:8,c:38.2},{t:12,c:9.5},{t:16,c:2.4}
+    { name:"Tamsulosin 0.4 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.5,c:2.482},{t:1,c:4.396},{t:1.5,c:5.846},{t:2,c:6.921},
+      {t:3,c:8.22},{t:4,c:8.728},{t:5,c:8.736},{t:6,c:8.439},{t:8,c:7.405},
+      {t:12,c:5.082},{t:16,c:3.293},{t:24,c:1.324},{t:27,c:0.937}
     ]},
-    { name:"Sildenafil 100 mg (oral)", unit:"ng/mL", rows:[
-      {t:0,c:0},{t:0.25,c:233.3},{t:0.5,c:332.5},{t:0.75,c:369.4},{t:1,c:377.7},
-      {t:1.5,c:362.3},{t:2,c:335.7},{t:3,c:283.3},{t:4,c:238.3},{t:6,c:168.6},
-      {t:8,c:119.3},{t:12,c:59.7},{t:18,c:21.1},{t:24,c:7.5}
-    ]},
-    { name:"Atenolol 50 mg (oral)", unit:"ng/mL", rows:[
-      {t:0,c:0},{t:0.5,c:93.7},{t:1,c:152.9},{t:1.5,c:188.7},{t:2,c:208.9},
-      {t:3,c:221.1},{t:4,c:214.3},{t:6,c:183},{t:8,c:149.9},{t:12,c:98.2},
-      {t:16,c:64},{t:24,c:27.2},{t:32,c:11.6},{t:40,c:4.9}
+    { name:"Bisoprolol 10 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.5,c:9.259},{t:1,c:15.68},{t:1.5,c:20.06},{t:2,c:22.96},
+      {t:3,c:25.88},{t:4,c:26.57},{t:5,c:26.14},{t:6,c:25.17},{t:8,c:22.67},
+      {t:12,c:17.77},{t:16,c:13.83},{t:24,c:8.353},{t:36,c:3.922},{t:48,c:1.842}
     ]},
     { name:"Levofloxacin 500 mg (oral)", unit:"ng/mL", rows:[
       {t:0,c:0},{t:0.25,c:2476.4},{t:0.5,c:3862.6},{t:0.75,c:4613.4},{t:1,c:4994.4},
@@ -1464,8 +1467,15 @@ const MOR = (function(){
       return line;
     }
 
+    // Tracks every currently-plotted point so the hover handler (attached once,
+    // in init()) can find the nearest one on mousemove and show its exact t/C —
+    // rebuilt fresh on every render() since which points are relevant changes
+    // by phase.
+    let hoverPts = [];
+
     if(phase==="data"){
       plotData.forEach(d=> drawClickable(d,true,-1,"#5E6A71",null));
+      hoverPts = plotData.map(d=>({t:d.t, val:d.c, label:"C"}));
     }
     if(phase==="elim"){
       plotData.forEach(d=>{
@@ -1473,6 +1483,7 @@ const MOR = (function(){
         drawClickable(d,isSel,order,"#981E32",()=>{ toggleSelect(selectedElim,d,3); render(); });
       });
       if(selectedElim.length===3) drawLineThrough(selectedElim,"#981E32");
+      hoverPts = plotData.map(d=>({t:d.t, val:d.c, label:"C"}));
     }
     if(phase==="resid" || phase==="done"){
       if(selectedElim.length===3){
@@ -1490,8 +1501,23 @@ const MOR = (function(){
           drawClickable({t:r.t,c:r.resid},isSel,order,"#3f7a52",()=>{ toggleSelect(selectedAbs,{t:r.t,c:r.resid},3); render(); });
         });
         if(selectedAbs.length===3) drawLineThrough(selectedAbs,"#3f7a52");
+        hoverPts = plotData.map(d=>({t:d.t, val:d.c, label:"C"}))
+                     .concat(residuals.map(rr=>({t:rr.t, val:rr.resid, label:"Residual"})));
       }
     }
+
+    // ---- Hover layer: crosshair + tooltip showing the exact t/value of the
+    // nearest plotted point (data point or residual point, whichever is
+    // closest on screen) ----
+    const hoverLayer = el("g",{id:"morHoverLayer", style:"display:none;"});
+    hoverLayer.appendChild(el("line",{id:"morHoverCrosshair", x1:0,x2:0,y1:M.top,y2:M.top+innerH, stroke:"#5E6A71","stroke-width":1,"stroke-dasharray":"3,3"}));
+    hoverLayer.appendChild(el("circle",{id:"morHoverDot", cx:0,cy:0,r:6,fill:"#22303a",stroke:"white","stroke-width":2}));
+    hoverLayer.appendChild(el("rect",{id:"morHoverTooltipBg", x:0,y:0,width:150,height:46,rx:6,fill:"#22303a",opacity:"0.92"}));
+    hoverLayer.appendChild(el("text",{id:"morHoverTooltipText", fill:"white","font-size":"13"}));
+    svg.appendChild(hoverLayer);
+    svg.__morHoverPts = hoverPts;
+    svg.__morHoverMeta = {W,H,innerW,innerH,unit:activeUnit};
+
     renderSubtabs();
     renderControls();
     renderDataPanel();
@@ -1646,8 +1672,8 @@ const MOR = (function(){
     if(phase==="data"){
       const rowsHtml = dataRows.map((d,i)=>`
         <tr>
-          <td><input type="number" step="any" class="cell mor-t-input" data-i="${i}" value="${isFinite(d.t)?d.t:""}"></td>
-          <td><input type="number" step="any" class="cell mor-c-input" data-i="${i}" value="${isFinite(d.c)?d.c:""}"></td>
+          <td><input type="number" step="any" class="cell mor-t-input" data-i="${i}" value="${isFinite(d.t)?fmtMax(d.t):""}"></td>
+          <td><input type="number" step="any" class="cell mor-c-input" data-i="${i}" value="${isFinite(d.c)?fmtMax(d.c):""}"></td>
           <td><button class="btn small" data-i="${i}" id="morRm${i}">\u2715</button></td>
         </tr>`).join("");
       el2.innerHTML = `
@@ -1725,7 +1751,7 @@ const MOR = (function(){
             residCell = r>0 ? fmt(r) : "\u2014";
           }
         }
-        return `<tr class="${rowClass}"><td>${d.t}</td><td>${d.c}</td><td>${lineCell}</td><td>${residCell}</td></tr>`;
+        return `<tr class="${rowClass}"><td>${fmtMax(d.t)}</td><td>${fmtMax(d.c)}</td><td>${lineCell}</td><td>${residCell}</td></tr>`;
       }).join("");
       el2.innerHTML = `
         <h4>Data</h4>
@@ -1768,6 +1794,45 @@ const MOR = (function(){
     render();
   }
 
+  function attachHover(){
+    const svg = document.getElementById("morPlot");
+    svg.addEventListener("mousemove",(e)=>{
+      const pts = svg.__morHoverPts, meta = svg.__morHoverMeta;
+      const hoverLayer = svg.querySelector("#morHoverLayer");
+      if(!pts || !pts.length || !hoverLayer) return;
+      const pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+      const ctm = svg.getScreenCTM(); if(!ctm) return;
+      const svgP = pt.matrixTransform(ctm.inverse());
+      if(svgP.x<M.left || svgP.x>meta.W-M.right || svgP.y<M.top || svgP.y>meta.H-M.bottom){
+        hoverLayer.style.display="none"; return;
+      }
+      // snap to the nearest plotted point by pixel-x distance (points are
+      // discrete data, not a continuous curve, so we highlight an exact
+      // point rather than interpolate)
+      let best=pts[0], bestDist=Infinity;
+      pts.forEach(p=>{
+        const px = xToPx(p.t, meta.W, meta.innerW);
+        const dist = Math.abs(px - svgP.x);
+        if(dist<bestDist){ bestDist=dist; best=p; }
+      });
+      const xPix = xToPx(best.t, meta.W, meta.innerW);
+      const yPix = yToPx(best.val, meta.H, meta.innerH);
+      hoverLayer.style.display="block";
+      svg.querySelector("#morHoverCrosshair").setAttribute("x1",xPix.toFixed(1));
+      svg.querySelector("#morHoverCrosshair").setAttribute("x2",xPix.toFixed(1));
+      svg.querySelector("#morHoverDot").setAttribute("cx",xPix.toFixed(1));
+      svg.querySelector("#morHoverDot").setAttribute("cy",yPix.toFixed(1));
+      const lines = [`t = ${fmtMax(best.t)} h`, `${best.label} = ${fmtMax(best.val)} ${meta.unit}`];
+      const tw=150, th=16+lines.length*18;
+      let tx = xPix+12; if(tx+tw > meta.W-M.right) tx = xPix-tw-12;
+      const ty = M.top+6;
+      const bg = svg.querySelector("#morHoverTooltipBg"), txt = svg.querySelector("#morHoverTooltipText");
+      bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw); bg.setAttribute("height",th);
+      txt.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}">${l}</tspan>`).join("");
+    });
+    svg.addEventListener("mouseleave", ()=>{ const hl=svg.querySelector("#morHoverLayer"); if(hl) hl.style.display="none"; });
+  }
+
   function init(){
     recomputeDataset();
     phase="data"; selectedElim=[]; selectedAbs=[]; residuals=[];
@@ -1775,6 +1840,7 @@ const MOR = (function(){
     document.querySelectorAll("#morUnitToggle button").forEach(btn=>{
       btn.onclick = ()=> setUnit(btn.dataset.unit);
     });
+    attachHover();
     render();
   }
   return {init};
