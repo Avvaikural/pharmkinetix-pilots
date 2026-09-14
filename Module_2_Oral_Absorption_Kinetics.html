@@ -1301,6 +1301,16 @@ const MOR = (function(){
       {t:3,c:25.88},{t:4,c:26.57},{t:5,c:26.14},{t:6,c:25.17},{t:8,c:22.67},
       {t:12,c:17.77},{t:16,c:13.83},{t:24,c:8.353},{t:36,c:3.922},{t:48,c:1.842}
     ]},
+    { name:"Sildenafil 100 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.25,c:233.3},{t:0.5,c:332.5},{t:0.75,c:369.4},{t:1,c:377.7},
+      {t:1.5,c:362.3},{t:2,c:335.7},{t:3,c:283.3},{t:4,c:238.3},{t:6,c:168.6},
+      {t:8,c:119.3},{t:12,c:59.7},{t:18,c:21.1},{t:24,c:7.5}
+    ]},
+    { name:"Atenolol 50 mg (oral)", unit:"ng/mL", rows:[
+      {t:0,c:0},{t:0.5,c:93.7},{t:1,c:152.9},{t:1.5,c:188.7},{t:2,c:208.9},
+      {t:3,c:221.1},{t:4,c:214.3},{t:6,c:183},{t:8,c:149.9},{t:12,c:98.2},
+      {t:16,c:64},{t:24,c:27.2},{t:32,c:11.6},{t:40,c:4.9}
+    ]},
     { name:"Levofloxacin 500 mg (oral)", unit:"ng/mL", rows:[
       {t:0,c:0},{t:0.25,c:2476.4},{t:0.5,c:3862.6},{t:0.75,c:4613.4},{t:1,c:4994.4},
       {t:1.5,c:5203.1},{t:2,c:5105.4},{t:4,c:4257.6},{t:6,c:3493.7},{t:8,c:2866.2},
@@ -1464,14 +1474,17 @@ const MOR = (function(){
       const [tStart,tFinish] = lineVisibleRange(line, 0, end);
       const p1={t:tStart,c:lineVal(line,tStart)}, p2={t:tFinish,c:lineVal(line,tFinish)};
       svg.appendChild(el("line",{x1:xToPx(p1.t,W,innerW),y1:yToPx(p1.c,H,innerH),x2:xToPx(p2.t,W,innerW),y2:yToPx(p2.c,H,innerH),stroke:color,"stroke-width":2.5,"stroke-dasharray":"5,4"}));
-      return line;
+      return {line, tStart, tFinish};
     }
 
-    // Tracks every currently-plotted point so the hover handler (attached once,
-    // in init()) can find the nearest one on mousemove and show its exact t/C —
-    // rebuilt fresh on every render() since which points are relevant changes
-    // by phase.
+    // Tracks every currently-plotted point (for nearest-point snapping) AND
+    // every currently-drawn fitted line with its visible [tStart,tFinish]
+    // range (so hovering ANYWHERE along a drawn line — not just at the 3
+    // points used to fit it — shows that line's continuous value there,
+    // the same way the Simulation tab's hover works on its smooth curve).
+    // Both rebuilt fresh on every render() since what's relevant changes by phase.
     let hoverPts = [];
+    let hoverLines = [];
 
     if(phase==="data"){
       plotData.forEach(d=> drawClickable(d,true,-1,"#5E6A71",null));
@@ -1482,7 +1495,10 @@ const MOR = (function(){
         const isSel=selectedElim.some(p=>p.t===d.t), order=selectedElim.findIndex(p=>p.t===d.t);
         drawClickable(d,isSel,order,"#981E32",()=>{ toggleSelect(selectedElim,d,3); render(); });
       });
-      if(selectedElim.length===3) drawLineThrough(selectedElim,"#981E32");
+      if(selectedElim.length===3){
+        const drawn = drawLineThrough(selectedElim,"#981E32");
+        hoverLines.push({...drawn, color:"#981E32", label:"Elimination line"});
+      }
       hoverPts = plotData.map(d=>({t:d.t, val:d.c, label:"C"}));
     }
     if(phase==="resid" || phase==="done"){
@@ -1496,11 +1512,15 @@ const MOR = (function(){
         });
         const p1={t:0,c:lineVal(elimLine,0)}, p2={t:T_MAX,c:lineVal(elimLine,T_MAX)};
         svg.appendChild(el("line",{x1:xToPx(p1.t,W,innerW),y1:yToPx(p1.c,H,innerH),x2:xToPx(p2.t,W,innerW),y2:yToPx(p2.c,H,innerH),stroke:"#c7cdd3","stroke-width":2,"stroke-dasharray":"5,4"}));
+        hoverLines.push({line:elimLine, tStart:0, tFinish:T_MAX, color:"#c7cdd3", label:"Elimination line"});
         residuals.forEach(r=>{
           const isSel=selectedAbs.some(p=>p.t===r.t), order=selectedAbs.findIndex(p=>p.t===r.t);
           drawClickable({t:r.t,c:r.resid},isSel,order,"#3f7a52",()=>{ toggleSelect(selectedAbs,{t:r.t,c:r.resid},3); render(); });
         });
-        if(selectedAbs.length===3) drawLineThrough(selectedAbs,"#3f7a52");
+        if(selectedAbs.length===3){
+          const drawn = drawLineThrough(selectedAbs,"#3f7a52");
+          hoverLines.push({...drawn, color:"#3f7a52", label:"Absorption line"});
+        }
         hoverPts = plotData.map(d=>({t:d.t, val:d.c, label:"C"}))
                      .concat(residuals.map(rr=>({t:rr.t, val:rr.resid, label:"Residual"})));
       }
@@ -1509,13 +1529,16 @@ const MOR = (function(){
     // ---- Hover layer: crosshair + tooltip showing the exact t/value of the
     // nearest plotted point (data point or residual point, whichever is
     // closest on screen) ----
-    const hoverLayer = el("g",{id:"morHoverLayer", style:"display:none;"});
+    const hoverLayer = el("g",{id:"morHoverLayer", style:"display:none;", "pointer-events":"none"});
     hoverLayer.appendChild(el("line",{id:"morHoverCrosshair", x1:0,x2:0,y1:M.top,y2:M.top+innerH, stroke:"#5E6A71","stroke-width":1,"stroke-dasharray":"3,3"}));
-    hoverLayer.appendChild(el("circle",{id:"morHoverDot", cx:0,cy:0,r:6,fill:"#22303a",stroke:"white","stroke-width":2}));
+    hoverLayer.appendChild(el("circle",{id:"morHoverDotPoint", cx:0,cy:0,r:6,fill:"#22303a",stroke:"white","stroke-width":2,style:"display:none;"}));
+    hoverLayer.appendChild(el("circle",{id:"morHoverDotElim", cx:0,cy:0,r:6,fill:"#981E32",stroke:"white","stroke-width":2,style:"display:none;"}));
+    hoverLayer.appendChild(el("circle",{id:"morHoverDotAbs", cx:0,cy:0,r:6,fill:"#3f7a52",stroke:"white","stroke-width":2,style:"display:none;"}));
     hoverLayer.appendChild(el("rect",{id:"morHoverTooltipBg", x:0,y:0,width:150,height:46,rx:6,fill:"#22303a",opacity:"0.92"}));
     hoverLayer.appendChild(el("text",{id:"morHoverTooltipText", fill:"white","font-size":"13"}));
     svg.appendChild(hoverLayer);
     svg.__morHoverPts = hoverPts;
+    svg.__morHoverLines = hoverLines;
     svg.__morHoverMeta = {W,H,innerW,innerH,unit:activeUnit};
 
     renderSubtabs();
@@ -1797,38 +1820,68 @@ const MOR = (function(){
   function attachHover(){
     const svg = document.getElementById("morPlot");
     svg.addEventListener("mousemove",(e)=>{
-      const pts = svg.__morHoverPts, meta = svg.__morHoverMeta;
+      const pts = svg.__morHoverPts, lines = svg.__morHoverLines, meta = svg.__morHoverMeta;
       const hoverLayer = svg.querySelector("#morHoverLayer");
-      if(!pts || !pts.length || !hoverLayer) return;
+      if(!pts || !meta || !hoverLayer) return;
       const pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
       const ctm = svg.getScreenCTM(); if(!ctm) return;
       const svgP = pt.matrixTransform(ctm.inverse());
       if(svgP.x<M.left || svgP.x>meta.W-M.right || svgP.y<M.top || svgP.y>meta.H-M.bottom){
         hoverLayer.style.display="none"; return;
       }
-      // snap to the nearest plotted point by pixel-x distance (points are
-      // discrete data, not a continuous curve, so we highlight an exact
-      // point rather than interpolate)
-      let best=pts[0], bestDist=Infinity;
-      pts.forEach(p=>{
-        const px = xToPx(p.t, meta.W, meta.innerW);
-        const dist = Math.abs(px - svgP.x);
-        if(dist<bestDist){ bestDist=dist; best=p; }
-      });
-      const xPix = xToPx(best.t, meta.W, meta.innerW);
-      const yPix = yToPx(best.val, meta.H, meta.innerH);
+      // Crosshair follows the CONTINUOUS mouse position (not snapped) so it
+      // can sit anywhere along a drawn line, the same way the Simulation
+      // tab's hover works on its smooth curve.
+      let tHover = ((svgP.x-M.left)/meta.innerW)*T_MAX;
+      tHover = Math.max(0, Math.min(T_MAX, tHover));
+      const xPix = xToPx(tHover, meta.W, meta.innerW);
       hoverLayer.style.display="block";
       svg.querySelector("#morHoverCrosshair").setAttribute("x1",xPix.toFixed(1));
       svg.querySelector("#morHoverCrosshair").setAttribute("x2",xPix.toFixed(1));
-      svg.querySelector("#morHoverDot").setAttribute("cx",xPix.toFixed(1));
-      svg.querySelector("#morHoverDot").setAttribute("cy",yPix.toFixed(1));
-      const lines = [`t = ${fmtMax(best.t)} h`, `${best.label} = ${fmtMax(best.val)} ${meta.unit}`];
-      const tw=150, th=16+lines.length*18;
+
+      const lines_out = [];
+
+      // Nearest discrete data/residual point (still snapped, since these are
+      // real observations, not a continuous function).
+      const dotPoint = svg.querySelector("#morHoverDotPoint");
+      if(pts.length){
+        let best=pts[0], bestDist=Infinity;
+        pts.forEach(p=>{
+          const px = xToPx(p.t, meta.W, meta.innerW);
+          const dist = Math.abs(px - svgP.x);
+          if(dist<bestDist){ bestDist=dist; best=p; }
+        });
+        const bestPx = xToPx(best.t, meta.W, meta.innerW);
+        const bestPy = yToPx(best.val, meta.H, meta.innerH);
+        dotPoint.style.display="block";
+        dotPoint.setAttribute("cx",bestPx.toFixed(1)); dotPoint.setAttribute("cy",bestPy.toFixed(1));
+        lines_out.push(`t = ${fmtMax(best.t)} h: ${best.label} = ${fmtMax(best.val)} ${meta.unit}`);
+      } else { dotPoint.style.display="none"; }
+
+      // Each currently-drawn fitted line, evaluated continuously at tHover —
+      // this is the part that now matches the Simulation tab: hovering
+      // anywhere along the line (not just at its 3 defining points) shows
+      // that line's value there.
+      const dotElim = svg.querySelector("#morHoverDotElim");
+      const dotAbs = svg.querySelector("#morHoverDotAbs");
+      dotElim.style.display="none"; dotAbs.style.display="none";
+      (lines||[]).forEach(ln=>{
+        if(tHover < ln.tStart-1e-9 || tHover > ln.tFinish+1e-9) return;
+        const val = lineVal(ln.line, tHover);
+        const dot = ln.label==="Elimination line" ? dotElim : dotAbs;
+        const dy = yToPx(val, meta.H, meta.innerH);
+        dot.style.display="block";
+        dot.setAttribute("cx",xPix.toFixed(1)); dot.setAttribute("cy",dy.toFixed(1));
+        lines_out.push(`${ln.label}: ${fmtMax(val)} ${meta.unit}`);
+      });
+
+      lines_out.unshift(`t = ${fmtMax(tHover,2)} h`);
+      const tw=190, th=16+lines_out.length*18;
       let tx = xPix+12; if(tx+tw > meta.W-M.right) tx = xPix-tw-12;
       const ty = M.top+6;
       const bg = svg.querySelector("#morHoverTooltipBg"), txt = svg.querySelector("#morHoverTooltipText");
       bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw); bg.setAttribute("height",th);
-      txt.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}">${l}</tspan>`).join("");
+      txt.innerHTML = lines_out.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}">${l}</tspan>`).join("");
     });
     svg.addEventListener("mouseleave", ()=>{ const hl=svg.querySelector("#morHoverLayer"); if(hl) hl.style.display="none"; });
   }
