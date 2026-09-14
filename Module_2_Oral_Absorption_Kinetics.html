@@ -100,7 +100,7 @@
   .theory-flip-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
   .theory-flip-text p{ margin:0 0 10px; }
   @media (max-width:800px){ .theory-flip-grid{ grid-template-columns:1fr; } }
-  .grid-sim{ display:grid; grid-template-columns:minmax(360px,1fr) 420px; gap:20px; align-items:start; }
+  .grid-sim{ display:grid; grid-template-columns:1fr 380px; gap:20px; align-items:start; }
   @media (max-width:900px){ .grid2, .grid-sim{ grid-template-columns:1fr; } }
 
   table{ border-collapse:collapse; width:100%; font-size:0.87rem; }
@@ -1423,11 +1423,11 @@ const MOR = (function(){
     const W = svg.viewBox.baseVal.width, H = svg.viewBox.baseVal.height;
     const innerW=W-M.left-M.right, innerH=H-M.top-M.bottom;
     svg.innerHTML="";
-    svg.appendChild(el("rect",{x:M.left,y:M.top,width:innerW,height:innerH,fill:"white",stroke:"#d9d5cc"}));
+    svg.appendChild(el("rect",{x:M.left,y:M.top,width:innerW,height:innerH,fill:"white",stroke:"#b8c0c6","stroke-width":1.5}));
     const startPow=Math.round(Math.log10(Y_MIN)), endPow=Math.round(Math.log10(Y_MAX));
     for(let p=startPow;p<=endPow;p++){
       const v=Math.pow(10,p), py=yToPx(v,H,innerH);
-      svg.appendChild(el("line",{x1:M.left,x2:M.left+innerW,y1:py,y2:py,stroke:"#d9d5cc"}));
+      svg.appendChild(el("line",{x1:M.left,x2:M.left+innerW,y1:py,y2:py,stroke:"#e2e5e7"}));
       svg.appendChild(el("text",{x:M.left-10,y:py+5,"text-anchor":"end","font-size":"14",fill:"#5E6A71"})).textContent=v>=1?v.toFixed(0):v.toFixed(2);
     }
     const xStep = niceTickStep(Math.max(T_MAX,1)/6);
@@ -1441,11 +1441,11 @@ const MOR = (function(){
 
     function drawClickable(pt,isSel,order,color,onClick){
       const cx=xToPx(pt.t,W,innerW), cy=yToPx(pt.c,H,innerH);
-      const circle=el("circle",{cx,cy,r:isSel?8:6,fill:isSel?color:"white",stroke:color,"stroke-width":2,style:onClick?"cursor:pointer;":""});
+      const circle=el("circle",{cx,cy,r:isSel?9:7,fill:isSel?color:"white",stroke:color,"stroke-width":2.5,style:onClick?"cursor:pointer;":""});
       if(onClick) circle.addEventListener("click",onClick);
       svg.appendChild(circle);
-      if(isSel){
-        const label=el("text",{x:cx,y:cy-13,"text-anchor":"middle","font-size":"12","font-weight":"700",fill:color});
+      if(isSel && order>=0){
+        const label=el("text",{x:cx,y:cy-14,"text-anchor":"middle","font-size":"13","font-weight":"700",fill:color});
         label.textContent=order+1; svg.appendChild(label);
       }
     }
@@ -1487,7 +1487,7 @@ const MOR = (function(){
     let hoverLines = [];
 
     if(phase==="data"){
-      plotData.forEach(d=> drawClickable(d,true,-1,"#5E6A71",null));
+      plotData.forEach(d=> drawClickable(d,true,-1,"#22303a",null));
       hoverPts = plotData.map(d=>({t:d.t, val:d.c, label:"C"}));
     }
     if(phase==="elim"){
@@ -1508,11 +1508,11 @@ const MOR = (function(){
         residuals=computeResiduals(elimLine,cutoffT);
         plotData.forEach(d=>{
           const cx=xToPx(d.t,W,innerW), cy=yToPx(d.c,H,innerH);
-          svg.appendChild(el("circle",{cx,cy,r:5,fill:"#c7cdd3",stroke:"white","stroke-width":1}));
+          svg.appendChild(el("circle",{cx,cy,r:6,fill:"#9aa3aa",stroke:"white","stroke-width":1.5}));
         });
         const p1={t:0,c:lineVal(elimLine,0)}, p2={t:T_MAX,c:lineVal(elimLine,T_MAX)};
-        svg.appendChild(el("line",{x1:xToPx(p1.t,W,innerW),y1:yToPx(p1.c,H,innerH),x2:xToPx(p2.t,W,innerW),y2:yToPx(p2.c,H,innerH),stroke:"#c7cdd3","stroke-width":2,"stroke-dasharray":"5,4"}));
-        hoverLines.push({line:elimLine, tStart:0, tFinish:T_MAX, color:"#c7cdd3", label:"Elimination line"});
+        svg.appendChild(el("line",{x1:xToPx(p1.t,W,innerW),y1:yToPx(p1.c,H,innerH),x2:xToPx(p2.t,W,innerW),y2:yToPx(p2.c,H,innerH),stroke:"#9aa3aa","stroke-width":2,"stroke-dasharray":"5,4"}));
+        hoverLines.push({line:elimLine, tStart:0, tFinish:T_MAX, color:"#9aa3aa", label:"Elimination line"});
         residuals.forEach(r=>{
           const isSel=selectedAbs.some(p=>p.t===r.t), order=selectedAbs.findIndex(p=>p.t===r.t);
           drawClickable({t:r.t,c:r.resid},isSel,order,"#3f7a52",()=>{ toggleSelect(selectedAbs,{t:r.t,c:r.resid},3); render(); });
