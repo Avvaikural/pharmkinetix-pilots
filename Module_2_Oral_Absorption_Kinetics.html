@@ -1094,6 +1094,7 @@ const Sim = (function(){
     const factor = concFactor();
     return `
       <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value">${fmt(r.K,4)}</span><span class="unit">h<sup>-1</sup></span></div></div>
+      <div class="out-card"><div class="label">t\u00bd</div><div class="value-row"><span class="value">${fmt(0.693/r.K)}</span><span class="unit">h</span></div></div>
       <div class="out-card"><div class="label">C<sub>max</sub></div><div class="value-row"><span class="value">${fmt(r.cmax*factor)}</span><span class="unit">${concUnit}</span></div></div>
       <div class="out-card"><div class="label">t<sub>max</sub></div><div class="value-row"><span class="value">${fmt(r.tmax)}</span><span class="unit">h</span></div></div>
       <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value">${fmt(r.auc*factor)}</span><span class="unit">${aucUnitLabel()}</span></div></div>
@@ -1534,8 +1535,10 @@ const MOR = (function(){
     hoverLayer.appendChild(el("circle",{id:"morHoverDotPoint", cx:0,cy:0,r:6,fill:"#22303a",stroke:"white","stroke-width":2,style:"display:none;"}));
     hoverLayer.appendChild(el("circle",{id:"morHoverDotElim", cx:0,cy:0,r:6,fill:"#981E32",stroke:"white","stroke-width":2,style:"display:none;"}));
     hoverLayer.appendChild(el("circle",{id:"morHoverDotAbs", cx:0,cy:0,r:6,fill:"#3f7a52",stroke:"white","stroke-width":2,style:"display:none;"}));
-    hoverLayer.appendChild(el("rect",{id:"morHoverTooltipBg", x:0,y:0,width:150,height:46,rx:6,fill:"#22303a",opacity:"0.92"}));
-    hoverLayer.appendChild(el("text",{id:"morHoverTooltipText", fill:"white","font-size":"13"}));
+    hoverLayer.appendChild(el("rect",{id:"morHoverTooltipBgData", x:0,y:0,width:150,height:20,fill:"#22303a",opacity:"0.95"}));
+    hoverLayer.appendChild(el("text",{id:"morHoverTooltipTextData", fill:"white","font-size":"13"}));
+    hoverLayer.appendChild(el("rect",{id:"morHoverTooltipBgLine", x:0,y:0,width:150,height:0,fill:"#F4F0E8",opacity:"0.97",stroke:"#d8d2c4","stroke-width":1}));
+    hoverLayer.appendChild(el("text",{id:"morHoverTooltipTextLine", fill:"#22303a","font-size":"13"}));
     svg.appendChild(hoverLayer);
     svg.__morHoverPts = hoverPts;
     svg.__morHoverLines = hoverLines;
@@ -1865,10 +1868,12 @@ const MOR = (function(){
       svg.querySelector("#morHoverCrosshair").setAttribute("x1",xPix.toFixed(1));
       svg.querySelector("#morHoverCrosshair").setAttribute("x2",xPix.toFixed(1));
 
-      const lines_out = [];
+      const dataLines = [`t = ${fmtMax(tHover,2)} h`];
+      const fitLines = [];
 
       // Nearest discrete data/residual point (still snapped, since these are
-      // real observations, not a continuous function).
+      // real observations, not a continuous function) — goes in the DARK
+      // "observed data" section of the tooltip.
       const dotPoint = svg.querySelector("#morHoverDotPoint");
       if(pts.length){
         let best=pts[0], bestDist=Infinity;
@@ -1881,13 +1886,12 @@ const MOR = (function(){
         const bestPy = yToPx(best.val, meta.H, meta.innerH);
         dotPoint.style.display="block";
         dotPoint.setAttribute("cx",bestPx.toFixed(1)); dotPoint.setAttribute("cy",bestPy.toFixed(1));
-        lines_out.push(`t = ${fmtMax(best.t)} h: ${best.label} = ${fmtMax(best.val)} ${meta.unit}`);
+        dataLines.push(`${best.label} (observed, t=${fmtMax(best.t)}h) = ${fmtMax(best.val)} ${meta.unit}`);
       } else { dotPoint.style.display="none"; }
 
       // Each currently-drawn fitted line, evaluated continuously at tHover —
-      // this is the part that now matches the Simulation tab: hovering
-      // anywhere along the line (not just at its 3 defining points) shows
-      // that line's value there.
+      // goes in the separate LIGHT "fitted line" section, so it's never
+      // confused with an actual observation.
       const dotElim = svg.querySelector("#morHoverDotElim");
       const dotAbs = svg.querySelector("#morHoverDotAbs");
       dotElim.style.display="none"; dotAbs.style.display="none";
@@ -1897,17 +1901,26 @@ const MOR = (function(){
         const dot = ln.label==="Elimination line" ? dotElim : dotAbs;
         const dy = yToPx(val, meta.H, meta.innerH);
         dot.style.display="block";
+        dot.setAttribute("fill", ln.color);
         dot.setAttribute("cx",xPix.toFixed(1)); dot.setAttribute("cy",dy.toFixed(1));
-        lines_out.push(`${ln.label}: ${fmtMax(val)} ${meta.unit}`);
+        fitLines.push(`${ln.label} (fitted) = ${fmtMax(val)} ${meta.unit}`);
       });
 
-      lines_out.unshift(`t = ${fmtMax(tHover,2)} h`);
-      const tw=190, th=16+lines_out.length*18;
+      const tw=230;
       let tx = xPix+12; if(tx+tw > meta.W-M.right) tx = xPix-tw-12;
       const ty = M.top+6;
-      const bg = svg.querySelector("#morHoverTooltipBg"), txt = svg.querySelector("#morHoverTooltipText");
-      bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw); bg.setAttribute("height",th);
-      txt.innerHTML = lines_out.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}">${l}</tspan>`).join("");
+      const dataH = 12+dataLines.length*18;
+      const fitH = fitLines.length ? 10+fitLines.length*18 : 0;
+
+      const bgData = svg.querySelector("#morHoverTooltipBgData"), txtData = svg.querySelector("#morHoverTooltipTextData");
+      bgData.setAttribute("x",tx.toFixed(1)); bgData.setAttribute("y",ty.toFixed(1)); bgData.setAttribute("width",tw); bgData.setAttribute("height",dataH);
+      txtData.innerHTML = dataLines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+17+i*18).toFixed(1)}">${l}</tspan>`).join("");
+
+      const bgLine = svg.querySelector("#morHoverTooltipBgLine"), txtLine = svg.querySelector("#morHoverTooltipTextLine");
+      const tyLine = ty + dataH;
+      bgLine.setAttribute("x",tx.toFixed(1)); bgLine.setAttribute("y",tyLine.toFixed(1)); bgLine.setAttribute("width",tw); bgLine.setAttribute("height",fitH);
+      bgLine.style.display = fitLines.length ? "block" : "none";
+      txtLine.innerHTML = fitLines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(tyLine+16+i*18).toFixed(1)}">${l}</tspan>`).join("");
     });
     svg.addEventListener("mouseleave", ()=>{ const hl=svg.querySelector("#morHoverLayer"); if(hl) hl.style.display="none"; });
   }
@@ -1973,10 +1986,11 @@ const CaseStudies = (function(){
   }
   function renderTrapTable(tableId, times, concs, unit){
     const rows = trapCorrectRows(times, concs);
-    let html = `<tr><th>t (h)</th><th>C (${unit})</th><th>(C\u2081+C\u2082)/2</th><th>interval AUC</th></tr>`;
-    html += `<tr><td>0</td><td>0</td><td>\u2014</td><td>\u2014</td></tr>`;
+    let html = `<tr><th>t (h)</th><th>C (${unit})</th><th>\u0394t = t\u2082\u2212t\u2081 (h)</th><th>(C\u2081+C\u2082)/2</th><th>interval AUC</th></tr>`;
+    html += `<tr><td>0</td><td>0</td><td>\u2014</td><td>\u2014</td><td>\u2014</td></tr>`;
     times.forEach((t,i)=>{
       html += `<tr><td>${t}</td><td>${fmt(concs[i])}</td>
+        <td><input class="cell" id="${tableId}_dt${i}" type="number" step="any"></td>
         <td><input class="cell" id="${tableId}_mean${i}" type="number" step="any"></td>
         <td><input class="cell" id="${tableId}_auc${i}" type="number" step="any"></td></tr>`;
     });
@@ -1985,12 +1999,12 @@ const CaseStudies = (function(){
   }
   function checkTrapTable(tableId, rows){
     const ids=[], corrects=[];
-    rows.forEach((r,i)=>{ ids.push(`${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.mean, r.auc); });
+    rows.forEach((r,i)=>{ ids.push(`${tableId}_dt${i}`, `${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.dt, r.mean, r.auc); });
     return gradeInputs(ids, corrects, 0.06);
   }
   function revealTrapTable(tableId, rows){
     const ids=[], corrects=[];
-    rows.forEach((r,i)=>{ ids.push(`${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.mean, r.auc); });
+    rows.forEach((r,i)=>{ ids.push(`${tableId}_dt${i}`, `${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.dt, r.mean, r.auc); });
     revealInputs(ids, corrects);
   }
 
