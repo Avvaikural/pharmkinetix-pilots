@@ -1635,10 +1635,22 @@ const MOR = (function(){
   let uploadStatus = {text:"No file chosen", cls:""};
   function setUploadStatus(text, cls){ uploadStatus = {text, cls: cls||""}; }
 
-  function loadRows(newRows, label){
+  // Tries to read the concentration column's declared unit straight from the
+  // file's own header text (e.g. "time,conc (ng/mL)") — this is the "read the
+  // title" fix. When no hint is present, callers fall back to mg/L and must
+  // say so plainly in the status message, since silently guessing wrong here
+  // is exactly what caused values to double-convert on the very first toggle.
+  function detectUnitFromHeader(headerText){
+    if(/ng\s*\/\s*m?l/i.test(headerText)) return "ng/mL";
+    if(/[mu\u00b5]g\s*\/\s*l/i.test(headerText) && !/ng/i.test(headerText)) return "mg/L";
+    return null;
+  }
+
+  function loadRows(newRows, unit){
     dataRows = newRows.map(d=>({...d}));
     activeDatasetIdx = -1; // custom / uploaded, not tied to a preset anymore
-    activeUnit = "mg/L"; // unit of an uploaded/custom file isn't knowable — default assumption
+    activeUnit = unit || "mg/L";
+    document.querySelectorAll("#morUnitToggle button").forEach(b=>b.classList.toggle("active", b.dataset.unit===activeUnit));
     recomputeDataset();
     selectedElim=[]; selectedAbs=[]; residuals=[];
     render();
@@ -1657,8 +1669,15 @@ const MOR = (function(){
       reader.onload = (e)=>{
         const rows = parseCSVText(e.target.result);
         if(rows.length<2){ setUploadStatus("Couldn't find at least 2 numeric (time, concentration) rows in that file.","error"); render(); return; }
-        setUploadStatus(`Loaded ${rows.length} points from ${file.name}.`,"success");
-        loadRows(rows);
+        const headerLine = e.target.result.split(/\r?\n/)[0] || "";
+        const detected = detectUnitFromHeader(headerLine);
+        setUploadStatus(
+          detected
+            ? `Loaded ${rows.length} points from ${file.name}. Detected unit from the header: ${detected}. Use the mg/L \u2194 ng/mL buttons above if that's wrong.`
+            : `Loaded ${rows.length} points from ${file.name}. No unit found in the header \u2014 assuming mg/L. Use the mg/L \u2194 ng/mL buttons above to correct this if your data is actually in ng/mL.`,
+          "success"
+        );
+        loadRows(rows, detected || "mg/L");
       };
       reader.onerror = ()=>{ setUploadStatus("Couldn't read that file.","error"); render(); };
       reader.readAsText(file);
@@ -1676,8 +1695,15 @@ const MOR = (function(){
           const aoa = XLSX.utils.sheet_to_json(sheet, {header:1});
           const rows = aoa.map(r=>({t:parseFloat(r[0]), c:parseFloat(r[1])})).filter(d=>isFinite(d.t)&&isFinite(d.c));
           if(rows.length<2){ setUploadStatus("Couldn't find at least 2 numeric (time, concentration) rows in that file.","error"); render(); return; }
-          setUploadStatus(`Loaded ${rows.length} points from ${file.name}.`,"success");
-          loadRows(rows);
+          const headerLine = (aoa[0]||[]).join(" ");
+          const detected = detectUnitFromHeader(headerLine);
+          setUploadStatus(
+            detected
+              ? `Loaded ${rows.length} points from ${file.name}. Detected unit from the header: ${detected}. Use the mg/L \u2194 ng/mL buttons above if that's wrong.`
+              : `Loaded ${rows.length} points from ${file.name}. No unit found in the header \u2014 assuming mg/L. Use the mg/L \u2194 ng/mL buttons above to correct this if your data is actually in ng/mL.`,
+            "success"
+          );
+          loadRows(rows, detected || "mg/L");
         }catch(err){
           setUploadStatus("Couldn't parse that Excel file.","error"); render();
         }
