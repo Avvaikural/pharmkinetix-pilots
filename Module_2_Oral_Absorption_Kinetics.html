@@ -1989,9 +1989,31 @@ const CaseStudies = (function(){
     if(t<10) return Math.round(t*2)/2;
     return Math.round(t);
   }
-  function generateTrapTimes(tmax){
-    const start = roundNice(Math.max(0.5, tmax));
-    return [start, roundNice(start*2), roundNice(start*4), roundNice(start*8), roundNice(start*16), roundNice(start*32)];
+  function generateTrapTimes(tmax, K, ka){
+    // Post-peak points are spaced by the DRUG'S OWN half-life, not a fixed
+    // multiple of tmax — a fixed "32\u00d7 tmax" scheme (the old approach)
+    // massively overshoots for fast-clearing drugs, landing points 40+
+    // half-lives out where the true concentration is genuinely negligible
+    // (not just a display-rounding artifact) and unusable for a trapezoidal
+    // exercise.
+    //
+    // The LAST point's multiplier adapts to how close k\u2090 and K are: the
+    // Bateman equation's coefficient k\u2090/(k\u2090\u2212K) grows large as k\u2090\u2192K, so
+    // for near-degenerate cases (e.g. Amoxicillin, k\u2090/K\u22481.25) the curve
+    // takes much longer to settle into pure single-exponential decline, and
+    // the simple C_last/K tail approximation needs a much later anchor point
+    // to stay accurate — 3.5 half-lives systematically undershoots the true
+    // AUC by ~12% for such cases, while 7 half-lives agrees within ~1.5%.
+    // Well-separated k\u2090/K ratios (the common case) don't need this and use
+    // the shorter spacing so the last point stays comfortably visible.
+    const thalf = 0.693/K;
+    const ratio = ka ? Math.max(ka/K, K/ka) : 10;
+    const lastMult = ratio < 2.5 ? 7 : 3.5;
+    const t1 = roundNice(Math.max(0.5, tmax));
+    const t2 = roundNice(t1 + thalf);
+    const t3 = roundNice(t1 + 2*thalf);
+    const t4 = roundNice(t1 + lastMult*thalf);
+    return [...new Set([t1,t2,t3,t4])];
   }
   function gradeInputs(ids, corrects, tolFrac){
     tolFrac = tolFrac===undefined ? 0.08 : tolFrac;
@@ -2071,7 +2093,7 @@ const CaseStudies = (function(){
     const tmax = tmaxVal(ka,K);
     const cmax = batemanC(F,dose,ka,Vd,K,tmax);
     const auc = F*dose/Cl;
-    const times = generateTrapTimes(tmax);
+    const times = generateTrapTimes(tmax, K, ka);
     const concs = times.map(t=>batemanC(F,dose,ka,Vd,K,t));
     c1 = {dose,F,ka,Vd,Cl,K,tmax,cmax,auc,times,concs};
   }
@@ -2112,7 +2134,7 @@ const CaseStudies = (function(){
   AMX.tmax = tmaxVal(AMX.ka, AMX.K);
   AMX.cmaxMgL = batemanC(AMX.F, AMX.X0, AMX.ka, AMX.Vd, AMX.K, AMX.tmax);
   AMX.aucMgL = AMX.F*AMX.X0/AMX.Cl;
-  AMX.times = generateTrapTimes(AMX.tmax);
+  AMX.times = generateTrapTimes(AMX.tmax, AMX.K, AMX.ka);
   AMX.concsMgL = AMX.times.map(t=>batemanC(AMX.F,AMX.X0,AMX.ka,AMX.Vd,AMX.K,t));
   AMX.concsNgML = AMX.concsMgL.map(c=>c*1000);
   let amxTrapRows = null;
