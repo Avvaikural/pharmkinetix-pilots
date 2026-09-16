@@ -475,8 +475,8 @@
   <h2>Case Studies</h2>
 
   <div class="card">
-    <h3>Case 1 — Calculate, then verify (generic scenario)</h3>
-    <p>Use the formulas first — K, t<sub>max</sub>, C<sub>max</sub>, and AUC — then use the trapezoidal method on the generated concentration-time data to independently verify your AUC. All values in mg/L.</p>
+    <h3>Case 1 — Calculate, then verify (real drug, randomized)</h3>
+    <p>Use the formulas first — K, t<sub>max</sub>, C<sub>max</sub>, and AUC — then use the trapezoidal method on the generated concentration-time data to independently verify your AUC. Each attempt draws a real drug (with typical inter-patient variability applied) from the same library used elsewhere in this module, reported in ng/mL like the literature values they're based on.</p>
     <div class="btn-row"><button class="btn small" id="c1GenerateBtn">↻ Generate new scenario</button></div>
     <div class="readout" id="c1Given" style="margin:10px 0;"></div>
 
@@ -488,7 +488,7 @@
     </div>
 
     <h4 style="margin:16px 0 6px;">Step 2 — Verify AUC with the trapezoidal method</h4>
-    <p class="hint">Standard timepoints generated around this scenario's t<sub>max</sub>.</p>
+    <p class="hint">Whole-hour sampling times, spanning several elimination half-lives past the peak.</p>
     <table class="compact" id="c1TrapTable"></table>
     <div class="btn-row" style="margin-top:8px;">
       <button class="btn primary small" id="c1TrapCheckBtn">Check my work</button>
@@ -498,8 +498,10 @@
   </div>
 
   <div class="card">
-    <h3>Case 2 — Amoxicillin 1000 mg (watch your units)</h3>
-    <p>A 1000&nbsp;mg oral dose of amoxicillin is given. F = 0.60, k<sub>a</sub> = 0.854 h<sup>-1</sup>, V<sub>d</sub> = 26 L, Cl = 17.7 L/h — <b>all in mg/L-based units</b>. Amoxicillin concentrations are conventionally reported in <b>ng/mL</b> in the literature, so part of this case is converting your answer, not just computing it.</p>
+    <h3>Case 2 — Watch your units (real drug, randomized)</h3>
+    <p>Dose, F, k<sub>a</sub>, V<sub>d</sub>, and Cl are given in the usual mg/L-based units — but concentrations for this drug are conventionally reported in <b>ng/mL</b> in the literature, so part of this case is converting your answer, not just computing it.</p>
+    <div class="btn-row"><button class="btn small" id="c2GenerateBtn">↻ Generate new scenario</button></div>
+    <div class="readout" id="c2Given" style="margin:10px 0;"></div>
 
     <h4 style="margin-bottom:6px;">Step 1 — Calculate, then convert</h4>
     <table class="compact" id="c2FormulaTable"></table>
@@ -1983,38 +1985,45 @@ const MOR = (function(){
    CASE STUDIES TAB
    ============================================================ */
 const CaseStudies = (function(){
-  // ---- shared helpers ----
-  function roundNice(t){
-    if(t<1) return Math.round(t*4)/4;
-    if(t<10) return Math.round(t*2)/2;
-    return Math.round(t);
+  // ---- Real-drug anchor library, shared by Case 1 and Case 2. Same 6 drugs
+  // used in the Method of Residuals tab, each with a hand-verified,
+  // whole-hour sampling schedule (6-8 points \u2192 6-8 trapezoidal segments)
+  // chosen so every point stays comfortably nonzero and the trapezoidal
+  // total agrees with F\u00b7X0/Cl to within a few percent \u2014 confirmed against
+  // the \u00b120% jitter range applied below, including Amoxicillin's
+  // near-degenerate k\u2090\u2248K case, which needs a further-out last point for
+  // the C_last/K tail approximation to stay valid.
+  const REAL_DRUG_ANCHORS = [
+    { name:"Amoxicillin",  F:0.60,  ka:0.854,  Vd:26,  Cl:17.7,  dose:250, times:[1,2,3,5,6,8] },
+    { name:"Tamsulosin",   F:0.55,  ka:0.3803, Vd:14.9,Cl:1.72,  dose:0.4, times:[2,3,4,6,9,12,18,26] },
+    { name:"Bisoprolol",   F:0.8375,ka:0.6442, Vd:245, Cl:15.44, dose:10,  times:[2,3,5,7,11,18,27,42] },
+    { name:"Sildenafil",   F:0.44,  ka:3.04,   Vd:98,  Cl:17.0,  dose:100, times:[1,2,3,5,7,10,15] },
+    { name:"Atenolol",     F:0.50,  ka:0.76,   Vd:82,  Cl:8.7,   dose:50,  times:[2,3,4,6,9,12,18,26] },
+    { name:"Levofloxacin", F:0.99,  ka:2.15,   Vd:82,  Cl:8.1,   dose:500, times:[1,2,3,4,6,10,16,26] },
+  ];
+  function jitter(){ return 0.8 + Math.random()*0.4; }
+
+  function pickAnchorScenario(){
+    const a = REAL_DRUG_ANCHORS[Math.floor(Math.random()*REAL_DRUG_ANCHORS.length)];
+    const F = Math.min(1, Math.round(a.F*jitter()*100)/100);
+    const ka = Math.round(a.ka*jitter()*1000)/1000;
+    const Vd = Math.round(a.Vd*jitter()*10)/10;
+    const Cl = Math.round(a.Cl*jitter()*100)/100;
+    const dose = a.dose;
+    const K = Cl/Vd;
+    const tmax = tmaxVal(ka,K);
+    const cmaxMgL = batemanC(F,dose,ka,Vd,K,tmax);
+    const aucMgL = F*dose/Cl;
+    const times = a.times;
+    const concsMgL = times.map(t=>batemanC(F,dose,ka,Vd,K,t));
+    return {
+      name:a.name, dose, F, ka, Vd, Cl, K, tmax,
+      cmaxMgL, aucMgL, times, concsMgL,
+      cmaxNgML: cmaxMgL*1000, aucNgML: aucMgL*1000,
+      concsNgML: concsMgL.map(c=>c*1000)
+    };
   }
-  function generateTrapTimes(tmax, K, ka){
-    // Post-peak points are spaced by the DRUG'S OWN half-life, not a fixed
-    // multiple of tmax — a fixed "32\u00d7 tmax" scheme (the old approach)
-    // massively overshoots for fast-clearing drugs, landing points 40+
-    // half-lives out where the true concentration is genuinely negligible
-    // (not just a display-rounding artifact) and unusable for a trapezoidal
-    // exercise.
-    //
-    // The LAST point's multiplier adapts to how close k\u2090 and K are: the
-    // Bateman equation's coefficient k\u2090/(k\u2090\u2212K) grows large as k\u2090\u2192K, so
-    // for near-degenerate cases (e.g. Amoxicillin, k\u2090/K\u22481.25) the curve
-    // takes much longer to settle into pure single-exponential decline, and
-    // the simple C_last/K tail approximation needs a much later anchor point
-    // to stay accurate — 3.5 half-lives systematically undershoots the true
-    // AUC by ~12% for such cases, while 7 half-lives agrees within ~1.5%.
-    // Well-separated k\u2090/K ratios (the common case) don't need this and use
-    // the shorter spacing so the last point stays comfortably visible.
-    const thalf = 0.693/K;
-    const ratio = ka ? Math.max(ka/K, K/ka) : 10;
-    const lastMult = ratio < 2.5 ? 7 : 3.5;
-    const t1 = roundNice(Math.max(0.5, tmax));
-    const t2 = roundNice(t1 + thalf);
-    const t3 = roundNice(t1 + 2*thalf);
-    const t4 = roundNice(t1 + lastMult*thalf);
-    return [...new Set([t1,t2,t3,t4])];
-  }
+
   function gradeInputs(ids, corrects, tolFrac){
     tolFrac = tolFrac===undefined ? 0.08 : tolFrac;
     let allCorrect = true;
@@ -2025,7 +2034,7 @@ const CaseStudies = (function(){
       const correct = corrects[i];
       inp.classList.remove("correct","incorrect");
       if(isNaN(val)){ allCorrect=false; return; }
-      if(Math.abs(val-correct) <= Math.max(correct*tolFrac, 0.001)) inp.classList.add("correct");
+      if(Math.abs(val-correct) <= Math.max(Math.abs(correct)*tolFrac, 0.001)) inp.classList.add("correct");
       else { inp.classList.add("incorrect"); allCorrect=false; }
     });
     return allCorrect;
@@ -2047,8 +2056,17 @@ const CaseStudies = (function(){
     }
     return rows;
   }
-  function renderTrapTable(tableId, times, concs, unit){
+
+  // Renders the trapezoidal table WITH two additional fill-in rows for the
+  // tail AUC (C_last/K) and the resulting total AUC \u2014 previously these were
+  // just displayed as computed text; now they're graded inputs like every
+  // other cell.
+  function renderTrapTable(tableId, times, concs, unit, K){
     const rows = trapCorrectRows(times, concs);
+    const sumTrap = rows.reduce((a,r)=>a+r.auc,0);
+    const lastC = concs[concs.length-1];
+    const tailAUC = lastC/K;
+    const totalAUC = sumTrap + tailAUC;
     let html = `<tr><th>t (h)</th><th>C (${unit})</th><th>\u0394t = t\u2082\u2212t\u2081 (h)</th><th>(C\u2081+C\u2082)/2</th><th>interval AUC</th></tr>`;
     html += `<tr><td>0</td><td>0</td><td>\u2014</td><td>\u2014</td><td>\u2014</td></tr>`;
     times.forEach((t,i)=>{
@@ -2057,89 +2075,65 @@ const CaseStudies = (function(){
         <td><input class="cell" id="${tableId}_mean${i}" type="number" step="any"></td>
         <td><input class="cell" id="${tableId}_auc${i}" type="number" step="any"></td></tr>`;
     });
+    html += `<tr><td colspan="4" style="text-align:right; font-weight:700;">Tail AUC (t\u2192\u221e) = C<sub>last</sub> / K</td>
+      <td><input class="cell" id="${tableId}_tail" type="number" step="any"></td></tr>`;
+    html += `<tr><td colspan="4" style="text-align:right; font-weight:700;">Total AUC (trapezoidal + tail)</td>
+      <td><input class="cell" id="${tableId}_total" type="number" step="any"></td></tr>`;
     document.getElementById(tableId).innerHTML = html;
-    return rows;
+    return {rows, tailAUC, totalAUC, sumTrap, lastC, K};
   }
-  function checkTrapTable(tableId, rows){
+  function trapIdsAndCorrects(tableId, trapResult){
     const ids=[], corrects=[];
-    rows.forEach((r,i)=>{ ids.push(`${tableId}_dt${i}`, `${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.dt, r.mean, r.auc); });
+    trapResult.rows.forEach((r,i)=>{ ids.push(`${tableId}_dt${i}`, `${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.dt, r.mean, r.auc); });
+    ids.push(`${tableId}_tail`, `${tableId}_total`);
+    corrects.push(trapResult.tailAUC, trapResult.totalAUC);
+    return {ids, corrects};
+  }
+  function checkTrapTable(tableId, trapResult){
+    const {ids, corrects} = trapIdsAndCorrects(tableId, trapResult);
     return gradeInputs(ids, corrects, 0.06);
   }
-  function revealTrapTable(tableId, rows){
-    const ids=[], corrects=[];
-    rows.forEach((r,i)=>{ ids.push(`${tableId}_dt${i}`, `${tableId}_mean${i}`, `${tableId}_auc${i}`); corrects.push(r.dt, r.mean, r.auc); });
+  function revealTrapTable(tableId, trapResult){
+    const {ids, corrects} = trapIdsAndCorrects(tableId, trapResult);
     revealInputs(ids, corrects);
   }
-
-  // ---- Case 1: randomized generic scenario (mg/L) ----
-  const RANDOM_ANCHORS = [
-    { F:0.60, ka:0.854, Vd:26, Cl:17.7, doses:[125,250,375,500] },
-    { F:0.33, ka:2.19,  Vd:32, Cl:11.1, doses:[25,50,75,100] },
-    { F:0.44, ka:3.04,  Vd:98, Cl:17.0, doses:[25,50,75,100] },
-    { F:0.50, ka:0.76,  Vd:82, Cl:8.7,  doses:[25,50,75,100] },
-    { F:0.99, ka:2.15,  Vd:82, Cl:8.1,  doses:[250,375,500,750] }
-  ];
-  function jitter(){ return 0.8 + Math.random()*0.4; }
-  let c1 = null;
-
-  function generateC1(){
-    const a = RANDOM_ANCHORS[Math.floor(Math.random()*RANDOM_ANCHORS.length)];
-    const dose = a.doses[Math.floor(Math.random()*a.doses.length)];
-    const F = Math.min(1, Math.round(a.F*jitter()*100)/100);
-    const ka = Math.round(a.ka*jitter()*1000)/1000;
-    const Vd = Math.round(a.Vd*jitter());
-    const Cl = Math.round(a.Cl*jitter()*100)/100;
-    const K = Cl/Vd;
-    const tmax = tmaxVal(ka,K);
-    const cmax = batemanC(F,dose,ka,Vd,K,tmax);
-    const auc = F*dose/Cl;
-    const times = generateTrapTimes(tmax, K, ka);
-    const concs = times.map(t=>batemanC(F,dose,ka,Vd,K,t));
-    c1 = {dose,F,ka,Vd,Cl,K,tmax,cmax,auc,times,concs};
+  function agreementReadout(elId, totalAUC, targetAUC, unit){
+    const agree = Math.abs(totalAUC-targetAUC) <= targetAUC*0.1;
+    document.getElementById(elId).innerHTML =
+      `<b>Total AUC (trapezoidal)</b> = ${fmt(totalAUC)} ${unit}<br>
+       <b>AUC from Step 1</b> = ${fmt(targetAUC)} ${unit}
+       ${agree ? '<br><span style="color:var(--safe);font-weight:700;">\u2713 These agree \u2014 nice, independent confirmation.</span>' : '<br><span style="color:var(--warn);font-weight:700;">\u26a0 These don\u2019t agree well \u2014 check your trapezoidal calculations.</span>'}`;
   }
+
+  // ---- Case 1: real drug, single-unit (ng/mL) ----
+  let c1 = null, c1Trap = null;
+
+  function generateC1(){ c1 = pickAnchorScenario(); }
 
   function renderC1(){
     document.getElementById("c1Given").innerHTML =
-      `<b>Dose (X\u2080)</b> = ${c1.dose} mg &nbsp; <b>F</b> = ${c1.F} &nbsp; <b>k\u2090</b> = ${c1.ka} h<sup>-1</sup> &nbsp; <b>V<sub>d</sub></b> = ${c1.Vd} L &nbsp; <b>Cl</b> = ${c1.Cl} L/h`;
+      `<b>Drug:</b> ${c1.name} &nbsp; <b>Dose (X\u2080)</b> = ${c1.dose} mg &nbsp; <b>F</b> = ${c1.F} &nbsp; <b>k\u2090</b> = ${c1.ka} h<sup>-1</sup> &nbsp; <b>V<sub>d</sub></b> = ${c1.Vd} L &nbsp; <b>Cl</b> = ${c1.Cl} L/h`;
     document.getElementById("c1FormulaTable").innerHTML = `
       <tr><th>Quantity</th><th>Your answer</th><th>Unit</th></tr>
       <tr><td>K = Cl / V<sub>d</sub></td><td><input class="cell" id="c1_K" type="number" step="any"></td><td>h<sup>-1</sup></td></tr>
       <tr><td>t<sub>max</sub> = ln(k\u2090/K)/(k\u2090\u2212K)</td><td><input class="cell" id="c1_tmax" type="number" step="any"></td><td>h</td></tr>
-      <tr><td>C<sub>max</sub> (from the equation)</td><td><input class="cell" id="c1_cmax" type="number" step="any"></td><td>mg/L</td></tr>
-      <tr><td>AUC = F\u00b7X\u2080/Cl</td><td><input class="cell" id="c1_auc" type="number" step="any"></td><td>mg\u00b7h/L</td></tr>
+      <tr><td>C<sub>max</sub> (from the equation)</td><td><input class="cell" id="c1_cmax" type="number" step="any"></td><td>ng/mL</td></tr>
+      <tr><td>AUC = F\u00b7X\u2080/Cl</td><td><input class="cell" id="c1_auc" type="number" step="any"></td><td>ng\u00b7h/mL</td></tr>
     `;
     document.getElementById("c1TrapSummary").innerHTML = "";
-    c1.trapRows = renderTrapTable("c1TrapTable", c1.times, c1.concs, "mg/L");
+    c1Trap = renderTrapTable("c1TrapTable", c1.times, c1.concsNgML, "ng/mL", c1.K);
   }
-
   function c1FormulaIds(){ return ["c1_K","c1_tmax","c1_cmax","c1_auc"]; }
-  function c1FormulaCorrects(){ return [c1.K, c1.tmax, c1.cmax, c1.auc]; }
+  function c1FormulaCorrects(){ return [c1.K, c1.tmax, c1.cmaxNgML, c1.aucNgML]; }
 
-  function c1TrapSummary(){
-    const sumTrap = c1.trapRows.reduce((a,r)=>a+r.auc,0);
-    const lastC = c1.concs[c1.concs.length-1];
-    const tailAUC = lastC/c1.K;
-    const total = sumTrap + tailAUC;
-    document.getElementById("c1TrapSummary").innerHTML =
-      `<b>Trapezoidal AUC (0\u2192${c1.times[c1.times.length-1]}h)</b> = ${fmt(sumTrap)} mg\u00b7h/L<br>
-       <b>Tail AUC (t\u2192\u221e)</b> = C<sub>last</sub>/K = ${fmt(lastC)}/${fmt(c1.K,4)} = ${fmt(tailAUC)} mg\u00b7h/L<br>
-       <b>Total AUC (trapezoidal)</b> = ${fmt(total)} mg\u00b7h/L<br>
-       <b>AUC from Step 1 (F\u00b7X\u2080/Cl)</b> = ${fmt(c1.auc)} mg\u00b7h/L
-       ${Math.abs(total-c1.auc)<=c1.auc*0.1 ? '<br><span style="color:var(--safe);font-weight:700;">\u2713 These agree \u2014 nice, independent confirmation.</span>' : '<br><span style="color:var(--warn);font-weight:700;">\u26a0 These don\u2019t agree well \u2014 check your trapezoidal calculations.</span>'}`;
-  }
+  // ---- Case 2: real drug, dual-unit conversion (mg/L \u2192 ng/mL) ----
+  let c2 = null, c2Trap = null;
 
-  // ---- Case 2: Amoxicillin 1000 mg (fixed, unit conversion) ----
-  const AMX = { F:0.60, X0:1000, ka:0.854, Vd:26, Cl:17.7 };
-  AMX.K = AMX.Cl/AMX.Vd;
-  AMX.tmax = tmaxVal(AMX.ka, AMX.K);
-  AMX.cmaxMgL = batemanC(AMX.F, AMX.X0, AMX.ka, AMX.Vd, AMX.K, AMX.tmax);
-  AMX.aucMgL = AMX.F*AMX.X0/AMX.Cl;
-  AMX.times = generateTrapTimes(AMX.tmax, AMX.K, AMX.ka);
-  AMX.concsMgL = AMX.times.map(t=>batemanC(AMX.F,AMX.X0,AMX.ka,AMX.Vd,AMX.K,t));
-  AMX.concsNgML = AMX.concsMgL.map(c=>c*1000);
-  let amxTrapRows = null;
+  function generateC2(){ c2 = pickAnchorScenario(); }
 
   function renderC2(){
+    document.getElementById("c2Given").innerHTML =
+      `<b>Drug:</b> ${c2.name} &nbsp; <b>Dose (X\u2080)</b> = ${c2.dose} mg &nbsp; <b>F</b> = ${c2.F} &nbsp; <b>k\u2090</b> = ${c2.ka} h<sup>-1</sup> &nbsp; <b>V<sub>d</sub></b> = ${c2.Vd} L &nbsp; <b>Cl</b> = ${c2.Cl} L/h`;
     document.getElementById("c2FormulaTable").innerHTML = `
       <tr><th>Quantity</th><th>Your answer</th><th>Unit</th></tr>
       <tr><td>K = Cl / V<sub>d</sub></td><td><input class="cell" id="c2_K" type="number" step="any"></td><td>h<sup>-1</sup></td></tr>
@@ -2149,24 +2143,11 @@ const CaseStudies = (function(){
       <tr><td>AUC = F\u00b7X\u2080/Cl</td><td><input class="cell" id="c2_aucMgL" type="number" step="any"></td><td>mg\u00b7h/L</td></tr>
       <tr><td>AUC \u2014 <b>converted</b></td><td><input class="cell" id="c2_aucNgML" type="number" step="any"></td><td>ng\u00b7h/mL</td></tr>
     `;
-    amxTrapRows = renderTrapTable("c2TrapTable", AMX.times, AMX.concsNgML, "ng/mL");
+    document.getElementById("c2TrapSummary").innerHTML = "";
+    c2Trap = renderTrapTable("c2TrapTable", c2.times, c2.concsNgML, "ng/mL", c2.K);
   }
   function c2FormulaIds(){ return ["c2_K","c2_tmax","c2_cmaxMgL","c2_cmaxNgML","c2_aucMgL","c2_aucNgML"]; }
-  function c2FormulaCorrects(){ return [AMX.K, AMX.tmax, AMX.cmaxMgL, AMX.cmaxMgL*1000, AMX.aucMgL, AMX.aucMgL*1000]; }
-
-  function c2TrapSummary(){
-    const sumTrap = amxTrapRows.reduce((a,r)=>a+r.auc,0);
-    const lastC = AMX.concsNgML[AMX.concsNgML.length-1];
-    const tailAUC = lastC/AMX.K;
-    const total = sumTrap + tailAUC;
-    const aucNgML = AMX.aucMgL*1000;
-    document.getElementById("c2TrapSummary").innerHTML =
-      `<b>Trapezoidal AUC (0\u2192${AMX.times[AMX.times.length-1]}h)</b> = ${fmt(sumTrap)} ng\u00b7h/mL<br>
-       <b>Tail AUC (t\u2192\u221e)</b> = C<sub>last</sub>/K = ${fmt(lastC)}/${fmt(AMX.K,4)} = ${fmt(tailAUC)} ng\u00b7h/mL<br>
-       <b>Total AUC (trapezoidal)</b> = ${fmt(total)} ng\u00b7h/mL<br>
-       <b>AUC from Step 1 (converted)</b> = ${fmt(aucNgML)} ng\u00b7h/mL
-       ${Math.abs(total-aucNgML)<=aucNgML*0.1 ? '<br><span style="color:var(--safe);font-weight:700;">\u2713 These agree \u2014 nice, independent confirmation.</span>' : '<br><span style="color:var(--warn);font-weight:700;">\u26a0 These don\u2019t agree well \u2014 check your trapezoidal calculations.</span>'}`;
-  }
+  function c2FormulaCorrects(){ return [c2.K, c2.tmax, c2.cmaxMgL, c2.cmaxNgML, c2.aucMgL, c2.aucNgML]; }
 
   function init(){
     generateC1();
@@ -2174,14 +2155,28 @@ const CaseStudies = (function(){
     document.getElementById("c1GenerateBtn").onclick = ()=>{ generateC1(); renderC1(); };
     document.getElementById("c1CheckBtn").onclick = ()=> gradeInputs(c1FormulaIds(), c1FormulaCorrects());
     document.getElementById("c1RevealBtn").onclick = ()=> revealInputs(c1FormulaIds(), c1FormulaCorrects(), [4,2,3,2]);
-    document.getElementById("c1TrapCheckBtn").onclick = ()=>{ checkTrapTable("c1TrapTable", c1.trapRows); c1TrapSummary(); };
-    document.getElementById("c1TrapRevealBtn").onclick = ()=>{ revealTrapTable("c1TrapTable", c1.trapRows); c1TrapSummary(); };
+    document.getElementById("c1TrapCheckBtn").onclick = ()=>{
+      checkTrapTable("c1TrapTable", c1Trap);
+      agreementReadout("c1TrapSummary", c1Trap.totalAUC, c1.aucNgML, "ng\u00b7h/mL");
+    };
+    document.getElementById("c1TrapRevealBtn").onclick = ()=>{
+      revealTrapTable("c1TrapTable", c1Trap);
+      agreementReadout("c1TrapSummary", c1Trap.totalAUC, c1.aucNgML, "ng\u00b7h/mL");
+    };
 
+    generateC2();
     renderC2();
+    document.getElementById("c2GenerateBtn").onclick = ()=>{ generateC2(); renderC2(); };
     document.getElementById("c2CheckBtn").onclick = ()=> gradeInputs(c2FormulaIds(), c2FormulaCorrects());
     document.getElementById("c2RevealBtn").onclick = ()=> revealInputs(c2FormulaIds(), c2FormulaCorrects(), [4,2,3,1,3,1]);
-    document.getElementById("c2TrapCheckBtn").onclick = ()=>{ checkTrapTable("c2TrapTable", amxTrapRows); c2TrapSummary(); };
-    document.getElementById("c2TrapRevealBtn").onclick = ()=>{ revealTrapTable("c2TrapTable", amxTrapRows); c2TrapSummary(); };
+    document.getElementById("c2TrapCheckBtn").onclick = ()=>{
+      checkTrapTable("c2TrapTable", c2Trap);
+      agreementReadout("c2TrapSummary", c2Trap.totalAUC, c2.aucNgML, "ng\u00b7h/mL");
+    };
+    document.getElementById("c2TrapRevealBtn").onclick = ()=>{
+      revealTrapTable("c2TrapTable", c2Trap);
+      agreementReadout("c2TrapSummary", c2Trap.totalAUC, c2.aucNgML, "ng\u00b7h/mL");
+    };
   }
   return {init};
 })();
