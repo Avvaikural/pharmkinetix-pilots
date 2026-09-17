@@ -20,6 +20,12 @@
   .mono{font-family:'Atkinson Hyperlegible Mono', monospace;}
 
   header{background:var(--gray); color:#fff; padding:18px clamp(16px,4vw,40px) 0;}
+  .sticky-top{position:sticky; top:0; z-index:20;}
+  /* Keeps a chart visible while its neighboring controls/side-panel column
+     scrolls past it. Offset is measured from the actual header+nav height
+     at runtime (see the script near the end of <body>) rather than
+     hardcoded, since it changes with font rendering and content. */
+  .sticky-chart{position:sticky; top:var(--sticky-offset, 90px);}
   .header-row{display:flex; justify-content:space-between; align-items:center; gap:20px; flex-wrap:wrap;}
   .header-logo{height:38px; width:auto; flex-shrink:0;}
   .brand{font-size:0.84rem; letter-spacing:0.14em; text-transform:uppercase; opacity:0.75;}
@@ -42,9 +48,23 @@
   .tabpanel{display:none;}
   .tabpanel.active{display:block;}
 
-  .twocol{display:grid; grid-template-columns:380px 1fr; gap:20px; align-items:start;}
+  .twocol{display:grid; grid-template-columns:380px 1fr; gap:20px; align-items:stretch;}
   @media(max-width:860px){.twocol{grid-template-columns:1fr;}}
-  .col{max-height:calc(100vh - 150px); overflow-y:auto; padding-right:6px;}
+  .col{max-height:none;}
+
+  /* Compact Live Outputs table (Active/Reference and Case Studies'
+     Before/After) -- parameter symbols and units are column headers,
+     stated once, instead of repeating them inside a boxed card per row. */
+  .out-table td, .out-table th{text-align:center;}
+  .out-table td:first-child, .out-table th:first-child{text-align:left;}
+  .out-table .ref-row td{color:var(--ink-soft);}
+
+  /* Collapses a slider control (label + slider + value + edit-range) onto
+     one line instead of the default stacked layout. Scoped per-control so
+     other sliders keep their normal layout. */
+  #simTimeRangeSlot .ctrl, #caseTimeRangeSlot .ctrl{display:flex; align-items:center; gap:10px; flex-wrap:nowrap; margin-top:8px;}
+  #simTimeRangeSlot .s-slider, #caseTimeRangeSlot .s-slider{flex:1; min-width:0;}
+  #simTimeRangeSlot .value-input-row, #caseTimeRangeSlot .value-input-row{margin-top:0; flex-wrap:nowrap;}
   @media(max-width:860px){.col{max-height:none;}}
 
   .panel{border-radius:14px; padding:20px 22px; margin-bottom:18px; border:1px solid var(--line);}
@@ -205,6 +225,7 @@
 </head>
 <body>
 
+<div class="sticky-top">
 <header>
   <div class="header-row">
     <div>
@@ -220,6 +241,7 @@
     <button data-tab="assessment">Assessment</button>
   </nav>
 </header>
+</div>
 
 <main>
 
@@ -315,45 +337,6 @@
           <h2><span class="dot"></span>Half-Life Decay Table</h2>
           <table id="halfLifeTable"></table>
         </div>
-      </div>
-
-      <div class="col">
-        <div class="panel sim">
-          <div class="unit-toggle" id="simScaleToggle">
-            <button type="button" class="unit-btn active" data-scale="linear">Linear</button>
-            <button type="button" class="unit-btn" data-scale="log">Semilog</button>
-          </div>
-          <div id="simTimeRangeSlot"></div>
-          <div class="chart-wrap">
-            <svg id="pkSvg" viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg"></svg>
-            <div class="legend">
-              <span><i style="background:#981E32"></i>Active patient</span>
-              <span id="refLegend" style="display:none;"><i style="border-bottom:2px dashed #5E6A71;"></i>Reference</span>
-              <span><i style="background:#981E32"></i>MTC (upper)</span>
-              <span><i style="background:#3F9E6E"></i>MEC (lower)</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel outputs">
-          <h2><span class="dot"></span>Live Outputs — Active Patient</h2>
-          <div class="out-grid">
-            <div class="out-card"><div class="label">C₀</div><div class="value-row"><span class="value mono" id="outC0">--</span><span class="unit" id="outC0Unit">mg/L</span></div></div>
-            <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value mono" id="outKe">--</span><span class="unit">h⁻¹</span></div></div>
-            <div class="out-card"><div class="label">t½</div><div class="value-row"><span class="value mono" id="outThalf">--</span><span class="unit">hours</span></div></div>
-            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value mono" id="outAuc">--</span><span class="unit" id="outAucUnit">mg·h/L</span></div></div>
-            </div>
-        </div>
-
-        <div class="panel outputs" id="refOutputsPanel" style="display:none; background:#F0F1F2; border-color:#DADDDF;">
-          <h2><span class="dot" style="background:var(--gray);"></span>Live Outputs — Reference Patient</h2>
-          <div class="out-grid">
-            <div class="out-card"><div class="label">C₀</div><div class="value-row"><span class="value mono" id="refOutC0" style="color:var(--gray);">--</span><span class="unit" id="refOutC0Unit">mg/L</span></div></div>
-            <div class="out-card"><div class="label">K</div><div class="value-row"><span class="value mono" id="refOutKe" style="color:var(--gray);">--</span><span class="unit">h⁻¹</span></div></div>
-            <div class="out-card"><div class="label">t½</div><div class="value-row"><span class="value mono" id="refOutThalf" style="color:var(--gray);">--</span><span class="unit">hours</span></div></div>
-            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value mono" id="refOutAuc" style="color:var(--gray);">--</span><span class="unit" id="refOutAucUnit">mg·h/L</span></div></div>
-            </div>
-        </div>
 
         <div class="panel outputs">
           <h2><span class="dot"></span>Concentration-Time Table</h2>
@@ -366,6 +349,30 @@
           <p class="sub" style="margin-top:-2px;">Define whichever parameter and target range matter for the drug you're simulating — not just vancomycin's.</p>
           <div id="simRules"></div>
           <button class="action secondary" onclick="simRuleMgr.addRule()">+ Add Monitoring Rule</button>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel sim sticky-chart">
+          <div class="unit-toggle" id="simScaleToggle">
+            <button type="button" class="unit-btn active" data-scale="linear">Linear</button>
+            <button type="button" class="unit-btn" data-scale="log">Semilog</button>
+          </div>
+          <div class="chart-wrap">
+            <svg id="pkSvg" viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="legend">
+              <span><i style="background:#981E32"></i>Active patient</span>
+              <span id="refLegend" style="display:none;"><i style="border-bottom:2px dashed #5E6A71;"></i>Reference</span>
+              <span><i style="background:#981E32"></i>MTC (upper)</span>
+              <span><i style="background:#3F9E6E"></i>MEC (lower)</span>
+            </div>
+          </div>
+          <div id="simTimeRangeSlot"></div>
+
+          <div class="panel outputs" style="margin:12px 0 0;">
+            <h2 style="margin-top:0;"><span class="dot"></span>Live Outputs</h2>
+            <table class="out-table" id="simOutTable"></table>
+          </div>
         </div>
       </div>
     </div>
@@ -389,27 +396,21 @@
           <p class="sub" style="margin-top:-4px;">Loads whichever scenario values you choose — or adjust freely on your own.</p>
           <div id="caseControls"></div>
         </div>
-        <div class="panel sim">
+
+        <div class="panel sim sticky-chart">
           <div class="unit-toggle" id="caseScaleToggle">
             <button type="button" class="unit-btn active" data-scale="linear">Linear</button>
             <button type="button" class="unit-btn" data-scale="log">Semilog</button>
           </div>
-          <div id="caseTimeRangeSlot"></div>
           <div class="chart-wrap">
             <svg id="caseSvg" viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg"></svg>
           </div>
-        </div>
-        <div class="panel outputs">
-          <div class="out-grid centered">
-            <div class="out-card"><div class="label">C₀</div><div class="value-row"><span class="value mono" id="caseC0">--</span><span class="unit" id="caseC0Unit">mg/L</span></div></div>
-            <div class="out-card"><div class="label">t½</div><div class="value-row"><span class="value mono" id="caseThalf">--</span><span class="unit">hours</span></div></div>
-            <div class="out-card"><div class="label">AUC (per dose)</div><div class="value-row"><span class="value mono" id="caseAuc">--</span><span class="unit" id="caseAucUnit">mg·h/L</span></div></div>
-            </div>
-        </div>
-        <div class="panel sim">
-          <h2>Monitoring Rules</h2>
-          <div id="caseRules"></div>
-          <button class="action secondary" onclick="caseRuleMgr.addRule()">+ Add Monitoring Rule</button>
+          <div id="caseTimeRangeSlot"></div>
+
+          <div class="panel outputs" style="margin:12px 0 0;">
+            <h2 style="margin-top:0;"><span class="dot"></span>Live Outputs</h2>
+            <table class="out-table" id="caseOutTable"></table>
+          </div>
         </div>
       </div>
     </div>
@@ -1205,7 +1206,6 @@ const simRuleMgr = createRuleManager('simRules', ()=>{
   {param:'ct', t:12, lower:simWindowCtrl.getMec(), upper:simWindowCtrl.getMtc()}
 ]);
 
-const outC0=document.getElementById('outC0'), outKe=document.getElementById('outKe'), outThalf=document.getElementById('outThalf'), outAuc=document.getElementById('outAuc');
 const setRefBtn=document.getElementById('setRefBtn'), refChipWrap=document.getElementById('refChipWrap'), refLegend=document.getElementById('refLegend');
 let referenceR = null;
 let simScaleMode = 'linear';
@@ -1262,25 +1262,12 @@ function renderSimulation(){
   const decimals = unit==='ng/mL' ? 0 : 2;
   const aucUnit = unit==='mg/L' ? 'mg·h/L' : 'ng·h/mL';
 
-  outC0.textContent = (r.C0*scale).toFixed(decimals);
-  outKe.textContent = r.ke.toFixed(3);
-  outThalf.textContent = r.thalf.toFixed(1);
-  outAuc.textContent = (r.auc*scale).toFixed(decimals);
-  document.getElementById('outC0Unit').textContent = unit;
-  document.getElementById('outAucUnit').textContent = aucUnit;
-
-  const refPanel = document.getElementById('refOutputsPanel');
+  let html = `<tr><th></th><th>C₀ (${unit})</th><th>K (h<sup>-1</sup>)</th><th>t½ (h)</th><th>AUC (${aucUnit})</th></tr>`;
+  html += `<tr><td><b>Active</b></td><td>${(r.C0*scale).toFixed(decimals)}</td><td>${r.ke.toFixed(3)}</td><td>${r.thalf.toFixed(1)}</td><td>${(r.auc*scale).toFixed(decimals)}</td></tr>`;
   if(referenceR){
-    refPanel.style.display = '';
-    document.getElementById('refOutC0').textContent = (referenceR.C0*scale).toFixed(decimals);
-    document.getElementById('refOutKe').textContent = referenceR.ke.toFixed(3);
-    document.getElementById('refOutThalf').textContent = referenceR.thalf.toFixed(1);
-    document.getElementById('refOutAuc').textContent = (referenceR.auc*scale).toFixed(decimals);
-    document.getElementById('refOutC0Unit').textContent = unit;
-    document.getElementById('refOutAucUnit').textContent = aucUnit;
-  } else {
-    refPanel.style.display = 'none';
+    html += `<tr class="ref-row"><td><b>Reference</b></td><td>${(referenceR.C0*scale).toFixed(decimals)}</td><td>${referenceR.ke.toFixed(3)}</td><td>${referenceR.thalf.toFixed(1)}</td><td>${(referenceR.auc*scale).toFixed(decimals)}</td></tr>`;
   }
+  document.getElementById('simOutTable').innerHTML = html;
 
   simRuleMgr.render();
   renderChart(document.getElementById('pkSvg'), r, referenceR, simScaleMode, simTimeCtrl.getValue(), scale, unit, simWindowCtrl.getMec(), simWindowCtrl.getMtc());
@@ -1309,23 +1296,6 @@ const caseDoseCtrl = makeDoseControl(caseControlsDiv, ()=>caseWtCtrl.getKg(), re
 const caseVdCtrl = makeVdControl(caseControlsDiv, ()=>caseWtCtrl.getKg(), renderCase);
 // Default the case Cl to 25 mL/min (post-AKI) to match the scenario narrative.
 const caseClCtrl = makeClControl(caseControlsDiv, ()=>caseWtCtrl.getKg(), renderCase, 25);
-const caseWindowCtrl = makeTherapeuticWindowControl(caseControlsDiv, (factor)=>{
-  if(factor){ caseRuleMgr.rescaleConcentrationUnits(factor); }
-  renderCase();
-});
-
-const caseRuleMgr = createRuleManager('caseRules', ()=>{
-  const unit = caseWindowCtrl.getUnit();
-  return {
-    r: computePK(caseDoseCtrl.getAbsoluteMg(), caseVdCtrl.getAbsoluteL(), caseClCtrl.getAbsoluteMlMin()),
-    concScale: unit==='ng/mL' ? 1000 : 1,
-    concUnit: unit,
-    mec: caseWindowCtrl.getMec(),
-    mtc: caseWindowCtrl.getMtc()
-  };
-}, [
-  {param:'ct', t:12, lower:caseWindowCtrl.getMec(), upper:caseWindowCtrl.getMtc()}
-]);
 
 let caseScaleMode = 'linear';
 document.querySelectorAll('#caseScaleToggle .unit-btn').forEach(btn=>{
@@ -1340,21 +1310,21 @@ const caseTimeCtrl = makeSliderControl(document.getElementById('caseTimeRangeSlo
   label:'X-axis Range', min:6, max:96, step:6, value:24, decimals:0, suffix:'h', onChange:renderCase
 });
 
+// Case Studies always displays in mg/L -- every scenario's questions are
+// already framed that way, and with Monitoring Rules/Therapeutic Window
+// removed from this tab there's no other unit source left to drive a toggle.
+let caseReferenceR = null;
 function renderCase(){
   const r = computePK(caseDoseCtrl.getAbsoluteMg(), caseVdCtrl.getAbsoluteL(), caseClCtrl.getAbsoluteMlMin());
-  const unit = caseWindowCtrl.getUnit();
-  const scale = unit==='ng/mL' ? 1000 : 1;
-  const decimals = unit==='ng/mL' ? 0 : 2;
-  const aucUnit = unit==='mg/L' ? 'mg·h/L' : 'ng·h/mL';
 
-  document.getElementById('caseC0').textContent = (r.C0*scale).toFixed(decimals);
-  document.getElementById('caseThalf').textContent = r.thalf.toFixed(1);
-  document.getElementById('caseAuc').textContent = (r.auc*scale).toFixed(decimals);
-  document.getElementById('caseC0Unit').textContent = unit;
-  document.getElementById('caseAucUnit').textContent = aucUnit;
+  let html = `<tr><th></th><th>C\u2080 (mg/L)</th><th>t\u00bd (h)</th><th>AUC (mg\u00b7h/L)</th></tr>`;
+  html += `<tr><td><b>After</b></td><td>${r.C0.toFixed(2)}</td><td>${r.thalf.toFixed(1)}</td><td>${r.auc.toFixed(2)}</td></tr>`;
+  if(caseReferenceR){
+    html += `<tr class="ref-row"><td><b>Before</b></td><td>${caseReferenceR.C0.toFixed(2)}</td><td>${caseReferenceR.thalf.toFixed(1)}</td><td>${caseReferenceR.auc.toFixed(2)}</td></tr>`;
+  }
+  document.getElementById('caseOutTable').innerHTML = html;
 
-  caseRuleMgr.render();
-  renderChart(document.getElementById('caseSvg'), r, null, caseScaleMode, caseTimeCtrl.getValue(), scale, unit, caseWindowCtrl.getMec(), caseWindowCtrl.getMtc());
+  renderChart(document.getElementById('caseSvg'), r, caseReferenceR, caseScaleMode, caseTimeCtrl.getValue(), 1, 'mg/L', null, null);
 }
 renderCase();
 
@@ -1539,6 +1509,8 @@ SCENARIOS.forEach((s,i)=>{
   btn.addEventListener('click', ()=>{
     currentScenarioIndex = i;
     currentDraw = SCENARIOS[i].generate();
+    caseReferenceR = null;
+    renderCase();
     document.querySelectorAll('#scenarioPicker .unit-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     renderScenario();
@@ -1572,7 +1544,21 @@ function loadScenarioTarget(targetIndex){
   caseDoseCtrl.setAbsValue(vals.dose);
   caseVdCtrl.setPerKgValue(vals.vdKg);
   caseClCtrl.setAbsValue(vals.clMlMin);
+  if(scenario.loadTargets.length===2 && targetIndex===0){
+    // "Load BEFORE" -- snapshot this state as the comparison row so that
+    // subsequently loading AFTER shows both together in the outputs table.
+    caseReferenceR = computePK(caseDoseCtrl.getAbsoluteMg(), caseVdCtrl.getAbsoluteL(), caseClCtrl.getAbsoluteMlMin());
+  } else if(scenario.loadTargets.length===1){
+    caseReferenceR = null;
+  }
   renderCase();
+}
+
+function regenerateScenario(){
+  currentDraw = SCENARIOS[currentScenarioIndex].generate();
+  caseReferenceR = null;
+  renderCase();
+  renderScenario();
 }
 
 function renderScenario(){
@@ -1596,10 +1582,6 @@ function renderScenario(){
     html += `<div class="feedback" id="scenQfb${i}"></div></div>`;
   });
   panel.innerHTML = html;
-}
-function regenerateScenario(){
-  currentDraw = SCENARIOS[currentScenarioIndex].generate();
-  renderScenario();
 }
 renderScenario();
 
@@ -1780,6 +1762,16 @@ function checkProblem(i){
   else { fb.className='feedback incorrect'; fb.textContent=`✗ Not quite — correct answer is ≈ ${correct.toFixed(3)}.`; }
 }
 renderProblems();
+
+// Measures the actual rendered height of the sticky header+nav bar and
+// exposes it as a CSS variable, so .sticky-chart elements know exactly
+// where to stop.
+function updateStickyOffset(){
+  const bar = document.querySelector(".sticky-top");
+  if(bar) document.documentElement.style.setProperty("--sticky-offset", bar.getBoundingClientRect().height + "px");
+}
+updateStickyOffset();
+window.addEventListener("resize", updateStickyOffset);
 </script>
 
 </body>
