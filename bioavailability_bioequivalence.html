@@ -366,7 +366,7 @@ function drawCurvePlotArea(svg, curves, opts){
   opts = opts || {};
   const W = svg.viewBox.baseVal.width || 700;
   const H = svg.viewBox.baseVal.height || 380;
-  const M = {left:60,right:16,top:16,bottom:38};
+  const M = {left:60,right:16,top:16,bottom:44};
   const innerW = W-M.left-M.right, innerH = H-M.top-M.bottom;
   svg.innerHTML = "";
   const logY = !!opts.logY;
@@ -407,8 +407,8 @@ function drawCurvePlotArea(svg, curves, opts){
     svg.appendChild(el("line",{x1:px,x2:px,y1:M.top+innerH,y2:M.top+innerH+5,stroke:"#5E6A71"}));
     svg.appendChild(el("text",{x:px,y:M.top+innerH+18,"text-anchor":"middle","font-size":"13",fill:"#5E6A71"})).textContent=t;
   }
-  svg.appendChild(el("text",{x:M.left+innerW/2,y:H-4,"text-anchor":"middle","font-size":"14",fill:"#22303a"})).textContent="time (h)";
-  svg.appendChild(el("text",{x:14,y:M.top+innerH/2,"text-anchor":"middle","font-size":"14",fill:"#22303a",transform:`rotate(-90 14 ${M.top+innerH/2})`})).textContent="concentration (mg/L)";
+  svg.appendChild(el("text",{x:M.left+innerW/2,y:H-4,"text-anchor":"middle","font-size":"16","font-weight":"700",fill:"#22303a"})).textContent="time (h)";
+  svg.appendChild(el("text",{x:14,y:M.top+innerH/2,"text-anchor":"middle","font-size":"16","font-weight":"700",fill:"#22303a",transform:`rotate(-90 14 ${M.top+innerH/2})`})).textContent="concentration (mg/L)";
 
   // Shaded AUC areas first (so curve lines draw on top, staying crisp)
   curves.forEach(curve=>{
