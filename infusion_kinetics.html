@@ -171,6 +171,11 @@
   .strategy-btn b{ display:block; font-size:0.88rem; color:var(--crimson-dark); margin-bottom:2px; }
   .strategy-btn.active{ border-color:var(--crimson); background:var(--warn-bg); }
   .phase-note{ font-size:0.8rem; color:var(--gray); margin-top:4px; }
+  .ref-chip{
+    display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--gray);
+    border-radius:20px; padding:7px 14px; font-size:0.9rem; margin-top:8px; color:var(--gray); font-weight:700;
+  }
+  .ref-chip button{background:none; border:none; cursor:pointer; color:var(--crimson); font-weight:700; font-size:1rem; padding:0 2px;}
 </style>
 </head><body>
 
@@ -268,6 +273,8 @@
       <div class="panel card">
         <h3 style="margin-top:0;">Patient / Drug Parameters</h3>
         <div id="simSharedControls"></div>
+        <button class="btn small" id="simSetRefBtn">Set as Reference</button>
+        <div id="simRefChipWrap"></div>
       </div>
 
       <div class="panel card">
@@ -606,6 +613,7 @@ const Sim = (function(){
   let ctrls = {}; // Vd, Cl (shared)
   let sc = {};    // strategy-specific controls
   let stopCtrl = null, xRangeCtrl = null;
+  let referenceSnapshot = null;
 
   function renderSharedControls(){
     const div = document.getElementById("simSharedControls");
@@ -684,37 +692,74 @@ const Sim = (function(){
     refresh();
   }
 
+  function snapshotFor(strat, params, stop){
+    const Css = params.k0/params.Cl; // true for all 3 strategies since currentParams() already derives k0 consistently
+    return {strategy:strat, params, stopTime:stop, Css};
+  }
+  function currentSnapshot(){
+    return snapshotFor(strategy, currentParams(), (stopEnabled && stopCtrl) ? stopCtrl.getValue() : null);
+  }
+  function curveFromSnapshot(snap, tMax, nPts){
+    const pts=[];
+    for(let i=0;i<=nPts;i++){
+      const t=(i/nPts)*tMax;
+      pts.push({t, c: concAt(t, snap.strategy, snap.params, snap.stopTime)});
+    }
+    return pts;
+  }
+  function rowFromSnapshot(snap, pts, labelHtml){
+    const K = snap.params.Cl/snap.params.Vd, thalf = 0.693/K, timeToSS = 5*thalf;
+    const auc = trapzAUC(pts);
+    return `<tr><td>${labelHtml}</td><td>${fmt(snap.Css,2)}</td><td>${fmt(K,4)}</td><td>${fmt(thalf,2)}</td><td>${fmt(timeToSS,1)}</td><td>${fmt(auc,1)}</td></tr>`;
+  }
+
   function refresh(){
-    const p = currentParams();
+    const snap = currentSnapshot();
+    const p = snap.params;
     const K = p.Cl/p.Vd;
     const thalf = 0.693/K;
     const timeToSS = 5*thalf;
-    const stopTime = (stopEnabled && stopCtrl) ? stopCtrl.getValue() : null;
+    const stopTime = snap.stopTime;
 
     const tMax = xRangeCtrl ? xRangeCtrl.getValue() : Math.max(24, timeToSS*1.4);
     const nPts = 150;
-    const pts = [];
-    for(let i=0;i<=nPts;i++){
-      const t=(i/nPts)*tMax;
-      pts.push({t, c: concAt(t, strategy, p, stopTime)});
+    const pts = curveFromSnapshot(snap, tMax, nPts);
+    const curves = [{points:pts, color:"#981E32", label: stopTime!=null ? `Active (stopped at ${fmt(stopTime,1)} h)` : "Active", fillArea:true}];
+
+    let refPts = null;
+    if(referenceSnapshot){
+      refPts = curveFromSnapshot(referenceSnapshot, tMax, nPts);
+      curves.push({points:refPts, color:"#5E6A71", dashed:true, label:"Reference"});
     }
-    const curves = [{points:pts, color:"#981E32", label: stopTime!=null ? `Concentration (stopped at ${fmt(stopTime,1)} h)` : "Concentration", fillArea:true}];
 
     const vlines = [];
     if(stopTime!=null) vlines.push({t:stopTime, label:"stop", color:"#5E6A71"});
     if(strategy==="loadingInf") vlines.push({t:sc.T.getValue(), label:"end of loading infusion", color:"#3f7a52"});
 
-    const Css = strategy==="continuous" ? p.k0/p.Cl : sc.Css.getValue();
-    const yMax = Math.max(Css, ...pts.map(pt=>pt.c))*1.25;
-    drawCurvePlotArea(document.getElementById("simSvg"), curves, {logY:scaleMode==="log", tMax, yMax, yMin:0.01, vlines});
+    const allC = pts.map(pt=>pt.c).concat(refPts ? refPts.map(pt=>pt.c) : []);
+    const peak = Math.max(snap.Css, referenceSnapshot?referenceSnapshot.Css:0, ...allC);
+    // Log scale needs proportionally more headroom than linear -- a modest
+    // 1.25x multiplier leaves a flat Css line looking like it's pinned to
+    // the top of the plot, since log compresses visual distance near the
+    // top of the range. Padding the top further, and giving the bottom of
+    // the range room too (rather than a fixed 0.01 regardless of scale),
+    // fixes both ends looking "hugged" against the plot border.
+    const isLog = scaleMode==="log";
+    const yMax = peak*(isLog?2.5:1.25);
+    const positiveVals = allC.filter(v=>v>1e-6);
+    const dataMin = positiveVals.length ? Math.min(...positiveVals) : 0.01;
+    const yMin = isLog ? Math.max(0.001, dataMin/5) : 0;
+    drawCurvePlotArea(document.getElementById("simSvg"), curves, {logY:isLog, tMax, yMax, yMin, vlines});
     renderLegend(document.getElementById("simLegend"), curves);
 
-    let html = `<tr><th>C<sub>ss</sub> (mg/L)</th><th>K (h<sup>-1</sup>)</th><th>t&frac12; (h)</th><th>Time to SS (h)</th><th>AUC (mg&middot;h/L)</th></tr>`;
-    const auc = trapzAUC(pts);
-    html += `<tr><td>${fmt(Css,2)}</td><td>${fmt(K,4)}</td><td>${fmt(thalf,2)}</td><td>${fmt(timeToSS,1)}</td><td>${fmt(auc,1)}</td></tr>`;
+    let html = `<tr><th></th><th>C<sub>ss</sub> (mg/L)</th><th>K (h<sup>-1</sup>)</th><th>t&frac12; (h)</th><th>Time to SS (h)</th><th>AUC (mg&middot;h/L)</th></tr>`;
+    html += rowFromSnapshot(snap, pts, "<b>Active</b>");
+    if(referenceSnapshot){
+      html += rowFromSnapshot(referenceSnapshot, refPts, "<b>Reference</b>").replace('<tr>','<tr class="ref-row">');
+    }
     if(stopTime!=null){
       const cAtStop = concAt(stopTime, strategy, p, null);
-      html += `<tr><td colspan="5" style="text-align:left;">Concentration at stop time (${fmt(stopTime,1)} h) = ${fmt(cAtStop,2)} mg/L</td></tr>`;
+      html += `<tr><td colspan="6" style="text-align:left;">Concentration at stop time (${fmt(stopTime,1)} h) = ${fmt(cAtStop,2)} mg/L</td></tr>`;
     }
     document.getElementById("simOutTable").innerHTML = html;
 
@@ -742,6 +787,20 @@ const Sim = (function(){
     refresh();
   }
 
+  function setReference(){
+    referenceSnapshot = currentSnapshot();
+    const p = referenceSnapshot.params;
+    const chip = document.getElementById("simRefChipWrap");
+    chip.innerHTML = `<div class="ref-chip">Reference: V<sub>d</sub> ${fmt(p.Vd,1)} L, Cl ${fmt(p.Cl,2)} L/h, C<sub>ss</sub> ${fmt(referenceSnapshot.Css,2)} mg/L <button id="simClearRefBtn">\u2715</button></div>`;
+    document.getElementById("simClearRefBtn").onclick = clearReference;
+    refresh();
+  }
+  function clearReference(){
+    referenceSnapshot = null;
+    document.getElementById("simRefChipWrap").innerHTML = "";
+    refresh();
+  }
+
   function init(){
     renderSharedControls();
     renderStrategyControls();
@@ -760,6 +819,7 @@ const Sim = (function(){
       };
     });
     document.getElementById("simStopToggleBtn").onclick = toggleStop;
+    document.getElementById("simSetRefBtn").onclick = setReference;
     refresh();
   }
   return {init};
@@ -1186,7 +1246,7 @@ const Assessment = (function(){
     }
     const curves = [{points:pts, color:"#981E32", label: stoppedBefore ? "Stopped before steady state" : "Stopped after steady state"}];
     const svg = document.getElementById("theoryPlot");
-    drawCurvePlotArea(svg, curves, {logY:true, tMax, yMax:(X0/Cl)*1.3, yMin:0.05, vlines:[{t:Tstop,label:"stop",color:"#5E6A71"}]});
+    drawCurvePlotArea(svg, curves, {logY:true, tMax, yMax:(X0/Cl)*2.5, yMin:0.02, vlines:[{t:Tstop,label:"stop",color:"#5E6A71"}]});
     renderLegend(document.getElementById("theoryLegend"), curves);
     document.getElementById("theoryCaption").innerHTML = stoppedBefore
       ? `k\u2080=100 mg/h, Cl=5 L/h, V<sub>d</sub>=50 L (t\u00bd\u22486.9h). Infusion stopped at t=${fmt(Tstop,1)}h, well before the ~${fmt(5*thalf,0)}h needed for steady state \u2014 the decline starts from whatever concentration had been reached by then, well below C<sub>ss</sub>=20 mg/L.`
