@@ -155,6 +155,12 @@
   .ratio-bar-wrap{ position:relative; flex:1; min-width:180px; height:22px; background:#f0efe9; border-radius:5px; }
   .ratio-bar-window{ position:absolute; top:0; bottom:0; background:var(--safe-bg); border-left:2px solid var(--safe); border-right:2px solid var(--safe); }
   .ratio-bar-marker{ position:absolute; top:-3px; width:3px; height:28px; background:var(--crimson); }
+
+  /* Collapses the X-axis-range slider onto one line, Edit range to the
+     right instead of stacked below -- same pattern used in Modules 1/2. */
+  #absTimeSlot .ctrl, #relTimeSlot .ctrl{ display:flex; align-items:center; gap:10px; flex-wrap:nowrap; margin-top:8px; }
+  #absTimeSlot .s-slider, #relTimeSlot .s-slider{ flex:1; min-width:0; }
+  #absTimeSlot .value-input-row, #relTimeSlot .value-input-row{ margin-top:0; flex-wrap:nowrap; }
 </style>
 </head>
 <body>
@@ -243,6 +249,7 @@
           <svg class="plot" id="absSvg" viewBox="0 0 700 380"></svg>
           <div class="legend" id="absLegend"></div>
         </div>
+        <div id="absTimeSlot"></div>
 
         <div class="card outputs" style="margin:12px 0 0;">
           <h3 style="margin-top:0;">Live Outputs</h3>
@@ -291,6 +298,7 @@
           <svg class="plot" id="relSvg" viewBox="0 0 700 380"></svg>
           <div class="legend" id="relLegend"></div>
         </div>
+        <div id="relTimeSlot"></div>
 
         <div class="card outputs" style="margin:12px 0 0;">
           <h3 style="margin-top:0;">Live Outputs</h3>
@@ -384,23 +392,23 @@ function drawCurvePlotArea(svg, curves, opts){
     nt.ticks.forEach(v=>{
       const py=yPx(v);
       svg.appendChild(el("line",{x1:M.left,x2:M.left+innerW,y1:py,y2:py,stroke:"#e3dfd4"}));
-      svg.appendChild(el("text",{x:M.left-6,y:py+4,"text-anchor":"end","font-size":"10",fill:"#5E6A71"})).textContent=fmt(v,decimals);
+      svg.appendChild(el("text",{x:M.left-6,y:py+4,"text-anchor":"end","font-size":"13",fill:"#5E6A71"})).textContent=fmt(v,decimals);
     });
   } else {
     [0.01,0.1,1,10,100,1000].filter(v=>v>=yMin && v<=yMax).forEach(v=>{
       const py=yPx(v);
       svg.appendChild(el("line",{x1:M.left,x2:M.left+innerW,y1:py,y2:py,stroke:"#e3dfd4"}));
-      svg.appendChild(el("text",{x:M.left-6,y:py+4,"text-anchor":"end","font-size":"10",fill:"#5E6A71"})).textContent=v;
+      svg.appendChild(el("text",{x:M.left-6,y:py+4,"text-anchor":"end","font-size":"13",fill:"#5E6A71"})).textContent=v;
     });
   }
   const xStep = tMax<=30?4:tMax<=80?10:50;
   for(let t=0;t<=tMax;t+=xStep){
     const px=xPx(t);
     svg.appendChild(el("line",{x1:px,x2:px,y1:M.top+innerH,y2:M.top+innerH+5,stroke:"#5E6A71"}));
-    svg.appendChild(el("text",{x:px,y:M.top+innerH+18,"text-anchor":"middle","font-size":"10",fill:"#5E6A71"})).textContent=t;
+    svg.appendChild(el("text",{x:px,y:M.top+innerH+18,"text-anchor":"middle","font-size":"13",fill:"#5E6A71"})).textContent=t;
   }
-  svg.appendChild(el("text",{x:M.left+innerW/2,y:H-4,"text-anchor":"middle","font-size":"11",fill:"#22303a"})).textContent="time (h)";
-  svg.appendChild(el("text",{x:14,y:M.top+innerH/2,"text-anchor":"middle","font-size":"11",fill:"#22303a",transform:`rotate(-90 14 ${M.top+innerH/2})`})).textContent="concentration (mg/L)";
+  svg.appendChild(el("text",{x:M.left+innerW/2,y:H-4,"text-anchor":"middle","font-size":"14",fill:"#22303a"})).textContent="time (h)";
+  svg.appendChild(el("text",{x:14,y:M.top+innerH/2,"text-anchor":"middle","font-size":"14",fill:"#22303a",transform:`rotate(-90 14 ${M.top+innerH/2})`})).textContent="concentration (mg/L)";
 
   // Shaded AUC areas first (so curve lines draw on top, staying crisp)
   curves.forEach(curve=>{
@@ -517,6 +525,7 @@ const AbsBA = (function(){
   let doseMode = "shared"; // "shared" | "different"
   let ctrls = {};
   let doseOralCtrl = null;
+  let xRangeCtrl = null;
 
   function renderControls(){
     const sharedDiv = document.getElementById("absSharedControls");
@@ -529,6 +538,18 @@ const AbsBA = (function(){
     oralDiv.innerHTML = "";
     ctrls.F = makeSliderControl(oralDiv, {label:"Bioavailability (F)", min:0.05, max:1, step:0.01, value:0.6, suffix:"", onChange:refresh});
     ctrls.ka = makeSliderControl(oralDiv, {label:"k<sub>a</sub> (Absorption Rate Constant)", min:0.05, max:5, step:0.01, value:0.85, suffix:"h<sup>-1</sup>", onChange:refresh});
+
+    xRangeCtrl = makeSliderControl(document.getElementById("absTimeSlot"), {label:"X-axis Range", min:6, max:400, step:6, value:24, suffix:"h", onChange:refresh});
+  }
+
+  function naturalTMax(){
+    const Vd = ctrls.Vd.getValue(), Cl = ctrls.Cl.getValue(), K = Cl/Vd;
+    const ka = ctrls.ka.getValue();
+    const tmax = tmaxVal(ka,K);
+    return Math.max(24, tmax*6, (0.693/K)*6);
+  }
+  function resetXRange(){
+    if(xRangeCtrl) xRangeCtrl.setValue(Math.ceil(naturalTMax()/6)*6, true);
   }
 
   function getDoseOral(){
@@ -545,7 +566,7 @@ const AbsBA = (function(){
     const X0oral = getDoseOral();
 
     const tmax = tmaxVal(ka,K);
-    const tMax = Math.max(24, tmax*6, (0.693/K)*6);
+    const tMax = xRangeCtrl ? xRangeCtrl.getValue() : Math.max(24, tmax*6, (0.693/K)*6);
     const nPts = 120;
     const ivPts = [], oralPts = [];
     for(let i=0;i<=nPts;i++){
@@ -613,11 +634,13 @@ const AbsBA = (function(){
     ctrls.F.setValue(a.F, true); ctrls.F.el.querySelector(".s-number").value=a.F; ctrls.F.el.querySelector(".s-slider").value=a.F;
     ctrls.ka.setValue(a.ka, true); ctrls.ka.el.querySelector(".s-number").value=a.ka; ctrls.ka.el.querySelector(".s-slider").value=a.ka;
     if(doseMode==="different" && doseOralCtrl){ doseOralCtrl.setValue(a.dose); }
+    resetXRange();
     refresh();
   }
 
   function init(){
     renderControls();
+    resetXRange();
     document.querySelectorAll("#absScaleToggle button").forEach(btn=>{
       btn.onclick = ()=>{
         document.querySelectorAll("#absScaleToggle button").forEach(b=>b.classList.remove("active"));
@@ -641,6 +664,7 @@ const RelBE = (function(){
   let ctrls = {}; // shared: Vd, Cl, dose
   let ref = {}, test = {};
   let testDoseCtrl = null, refDoseCtrl = null;
+  let xRangeCtrl = null;
 
   function renderControls(){
     const sharedDiv = document.getElementById("relSharedControls");
@@ -658,6 +682,17 @@ const RelBE = (function(){
     testDiv.innerHTML = "";
     test.F = makeSliderControl(testDiv, {label:"F (test)", min:0.05, max:1, step:0.01, value:0.55, suffix:"", onChange:refresh});
     test.ka = makeSliderControl(testDiv, {label:"k<sub>a</sub> (test)", min:0.05, max:5, step:0.01, value:0.70, suffix:"h<sup>-1</sup>", onChange:refresh});
+
+    xRangeCtrl = makeSliderControl(document.getElementById("relTimeSlot"), {label:"X-axis Range", min:6, max:400, step:6, value:24, suffix:"h", onChange:refresh});
+  }
+
+  function naturalTMax(){
+    const Vd = ctrls.Vd.getValue(), Cl = ctrls.Cl.getValue(), K = Cl/Vd;
+    const tmaxRef = tmaxVal(ref.ka.getValue(),K), tmaxTest = tmaxVal(test.ka.getValue(),K);
+    return Math.max(24, tmaxRef*6, tmaxTest*6);
+  }
+  function resetXRange(){
+    if(xRangeCtrl) xRangeCtrl.setValue(Math.ceil(naturalTMax()/6)*6, true);
   }
 
   function getDoseRef(){ return doseMode==="shared" ? ctrls.dose.getValue() : (refDoseCtrl?refDoseCtrl.getValue():ctrls.dose.getValue()); }
@@ -673,7 +708,7 @@ const RelBE = (function(){
     const cmaxRef = cmaxVal(Fref,doseRef,kaRef,Vd,K), cmaxTest = cmaxVal(Ftest,doseTest,kaTest,Vd,K);
     const aucRef = Fref*doseRef/Cl, aucTest = Ftest*doseTest/Cl;
 
-    const tMax = Math.max(24, tmaxRef*6, tmaxTest*6);
+    const tMax = xRangeCtrl ? xRangeCtrl.getValue() : Math.max(24, tmaxRef*6, tmaxTest*6);
     const nPts=120, refPts=[], testPts=[];
     for(let i=0;i<=nPts;i++){
       const t=(i/nPts)*tMax;
@@ -752,11 +787,13 @@ const RelBE = (function(){
       if(refDoseCtrl) setSlider(refDoseCtrl, a.dose);
       if(testDoseCtrl) setSlider(testDoseCtrl, a.dose);
     }
+    resetXRange();
     refresh();
   }
 
   function init(){
     renderControls();
+    resetXRange();
     document.querySelectorAll("#relScaleToggle button").forEach(btn=>{
       btn.onclick = ()=>{
         document.querySelectorAll("#relScaleToggle button").forEach(b=>b.classList.remove("active"));
