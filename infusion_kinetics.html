@@ -176,6 +176,7 @@
     border-radius:20px; padding:7px 14px; font-size:0.9rem; margin-top:8px; color:var(--gray); font-weight:700;
   }
   .ref-chip button{background:none; border:none; cursor:pointer; color:var(--crimson); font-weight:700; font-size:1rem; padding:0 2px;}
+  #theoryPlot{ max-width:50%; display:block; margin:0 auto; }
 </style>
 </head><body>
 
@@ -744,7 +745,10 @@ const Sim = (function(){
       curves.push({points:refPts, color:"#5E6A71", dashed:true, label:"Reference"});
     }
 
-    const vlines = [{t:stopTime, label:"stop", color:"#5E6A71"}];
+    const vlines = [
+      {t:stopTime, label:"stop", color:"#5E6A71"},
+      {t:timeToSS, label:"time to SS", color:"#4472C4"}
+    ];
     if(strategy==="loadingInf") vlines.push({t:sc.T.getValue(), label:"end of loading infusion", color:"#3f7a52"});
 
     const allC = pts.map(pt=>pt.c).concat(refPts ? refPts.map(pt=>pt.c) : []);
