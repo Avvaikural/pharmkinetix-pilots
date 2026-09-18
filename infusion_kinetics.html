@@ -288,9 +288,9 @@
       </div>
 
       <div class="panel card">
-        <h3 style="margin-top:0;">Stopping the Infusion</h3>
-        <div class="btn-row"><button class="btn small" id="simStopToggleBtn">Stop the infusion at a chosen time</button></div>
-        <div id="simStopSlot" style="display:none;"></div>
+        <h3 style="margin-top:0;">Infusion Duration</h3>
+        <p class="hint" style="margin-top:-2px;">Every infusion has to stop sometime for AUC to mean anything &mdash; this isn't optional. The X-axis range (next to the chart) only controls what the plot shows; it never affects AUC.</p>
+        <div id="simStopSlot"></div>
       </div>
     </div>
 
@@ -609,7 +609,6 @@ function drugToClVd(d){
 const Sim = (function(){
   let scaleMode = "linear";
   let strategy = "continuous";
-  let stopEnabled = false;
   let ctrls = {}; // Vd, Cl (shared)
   let sc = {};    // strategy-specific controls
   let stopCtrl = null, xRangeCtrl = null;
@@ -676,20 +675,11 @@ const Sim = (function(){
     }
   }
 
-  function toggleStop(){
-    stopEnabled = !stopEnabled;
-    const btn = document.getElementById("simStopToggleBtn");
-    const slot = document.getElementById("simStopSlot");
-    if(stopEnabled){
-      btn.textContent = "Run the infusion indefinitely (no stop)";
-      slot.style.display = "block"; slot.innerHTML = "";
-      stopCtrl = makeSliderControl(slot, {label:"Stop Infusion At", min:0.5, max:200, step:0.5, value:12, suffix:"h", onChange:refresh});
-    } else {
-      btn.textContent = "Stop the infusion at a chosen time";
-      slot.style.display = "none"; slot.innerHTML = "";
-      stopCtrl = null;
-    }
-    refresh();
+  function resetStopTime(){
+    if(!stopCtrl) return;
+    const p = currentParams();
+    const K = p.Cl/p.Vd;
+    stopCtrl.setValue(Math.ceil((5*0.693/K)/0.5)*0.5, true);
   }
 
   function snapshotFor(strat, params, stop){
@@ -697,7 +687,7 @@ const Sim = (function(){
     return {strategy:strat, params, stopTime:stop, Css};
   }
   function currentSnapshot(){
-    return snapshotFor(strategy, currentParams(), (stopEnabled && stopCtrl) ? stopCtrl.getValue() : null);
+    return snapshotFor(strategy, currentParams(), stopCtrl.getValue());
   }
   function curveFromSnapshot(snap, tMax, nPts){
     const pts=[];
@@ -707,9 +697,29 @@ const Sim = (function(){
     }
     return pts;
   }
-  function rowFromSnapshot(snap, pts, labelHtml){
+  // AUC(0->infinity) -- completely independent of whatever the X-axis
+  // display range happens to be set to. Integrates the "as if running"
+  // curve numerically from 0 to the infusion's own stop time (at a fixed,
+  // generous resolution, not tied to the plot's point count), then adds
+  // the exact analytical tail for the first-order decay from the stop
+  // time to true infinity (integral of C_T*e^{-K*dt} dt = C_T/K).
+  function aucToInfinity(strat, params, stopTime){
+    const K = params.Cl/params.Vd;
+    const nPts = 300;
+    const pts = [];
+    for(let i=0;i<=nPts;i++){
+      const t = (i/nPts)*stopTime;
+      pts.push({t, c: concAt(t, strat, params, null)});
+    }
+    const aucToStop = trapzAUC(pts);
+    const cAtStop = concAt(stopTime, strat, params, null);
+    const tailAUC = cAtStop/K;
+    return aucToStop + tailAUC;
+  }
+
+  function rowFromSnapshot(snap, labelHtml){
     const K = snap.params.Cl/snap.params.Vd, thalf = 0.693/K, timeToSS = 5*thalf;
-    const auc = trapzAUC(pts);
+    const auc = aucToInfinity(snap.strategy, snap.params, snap.stopTime);
     return `<tr><td>${labelHtml}</td><td>${fmt(snap.Css,2)}</td><td>${fmt(K,4)}</td><td>${fmt(thalf,2)}</td><td>${fmt(timeToSS,1)}</td><td>${fmt(auc,1)}</td></tr>`;
   }
 
@@ -721,10 +731,12 @@ const Sim = (function(){
     const timeToSS = 5*thalf;
     const stopTime = snap.stopTime;
 
+    // The X-axis range is a pure display choice -- it decides how much of
+    // the curve is drawn, nothing else. AUC (below) never reads from it.
     const tMax = xRangeCtrl ? xRangeCtrl.getValue() : Math.max(24, timeToSS*1.4);
     const nPts = 150;
     const pts = curveFromSnapshot(snap, tMax, nPts);
-    const curves = [{points:pts, color:"#981E32", label: stopTime!=null ? `Active (stopped at ${fmt(stopTime,1)} h)` : "Active", fillArea:true}];
+    const curves = [{points:pts, color:"#981E32", label:`Active (stopped at ${fmt(stopTime,1)} h)`, fillArea:true}];
 
     let refPts = null;
     if(referenceSnapshot){
@@ -732,8 +744,7 @@ const Sim = (function(){
       curves.push({points:refPts, color:"#5E6A71", dashed:true, label:"Reference"});
     }
 
-    const vlines = [];
-    if(stopTime!=null) vlines.push({t:stopTime, label:"stop", color:"#5E6A71"});
+    const vlines = [{t:stopTime, label:"stop", color:"#5E6A71"}];
     if(strategy==="loadingInf") vlines.push({t:sc.T.getValue(), label:"end of loading infusion", color:"#3f7a52"});
 
     const allC = pts.map(pt=>pt.c).concat(refPts ? refPts.map(pt=>pt.c) : []);
@@ -752,15 +763,13 @@ const Sim = (function(){
     drawCurvePlotArea(document.getElementById("simSvg"), curves, {logY:isLog, tMax, yMax, yMin, vlines});
     renderLegend(document.getElementById("simLegend"), curves);
 
-    let html = `<tr><th></th><th>C<sub>ss</sub> (mg/L)</th><th>K (h<sup>-1</sup>)</th><th>t&frac12; (h)</th><th>Time to SS (h)</th><th>AUC (mg&middot;h/L)</th></tr>`;
-    html += rowFromSnapshot(snap, pts, "<b>Active</b>");
+    let html = `<tr><th></th><th>C<sub>ss</sub> (mg/L)</th><th>K (h<sup>-1</sup>)</th><th>t&frac12; (h)</th><th>Time to SS (h)</th><th>AUC<sub>0&rarr;&infin;</sub> (mg&middot;h/L)</th></tr>`;
+    html += rowFromSnapshot(snap, "<b>Active</b>");
     if(referenceSnapshot){
-      html += rowFromSnapshot(referenceSnapshot, refPts, "<b>Reference</b>").replace('<tr>','<tr class="ref-row">');
+      html += rowFromSnapshot(referenceSnapshot, "<b>Reference</b>").replace('<tr>','<tr class="ref-row">');
     }
-    if(stopTime!=null){
-      const cAtStop = concAt(stopTime, strategy, p, null);
-      html += `<tr><td colspan="6" style="text-align:left;">Concentration at stop time (${fmt(stopTime,1)} h) = ${fmt(cAtStop,2)} mg/L</td></tr>`;
-    }
+    const cAtStop = concAt(stopTime, strategy, p, null);
+    html += `<tr><td colspan="6" style="text-align:left;">Concentration at stop time (${fmt(stopTime,1)} h) = ${fmt(cAtStop,2)} mg/L. AUC is calculated to complete decay (0&rarr;&infin;), independent of the X-axis range above.</td></tr>`;
     document.getElementById("simOutTable").innerHTML = html;
 
     if(strategy==="loadingInf"){
@@ -804,7 +813,9 @@ const Sim = (function(){
   function init(){
     renderSharedControls();
     renderStrategyControls();
-    xRangeCtrl = makeSliderControl(document.getElementById("simTimeSlot"), {label:"X-axis Range", min:6, max:500, step:6, value:24, suffix:"h", onChange:refresh});
+    stopCtrl = makeSliderControl(document.getElementById("simStopSlot"), {label:"Infusion Duration (T) \u2014 when the infusion stops", min:0.5, max:500, step:0.5, value:12, suffix:"h", onChange:refresh});
+    resetStopTime();
+    xRangeCtrl = makeSliderControl(document.getElementById("simTimeSlot"), {label:"X-axis Range (display only)", min:6, max:500, step:6, value:24, suffix:"h", onChange:refresh});
     resetXRange();
 
     document.querySelectorAll("#simStrategyRow .strategy-btn").forEach(btn=>{
@@ -818,7 +829,6 @@ const Sim = (function(){
         refresh();
       };
     });
-    document.getElementById("simStopToggleBtn").onclick = toggleStop;
     document.getElementById("simSetRefBtn").onclick = setReference;
     refresh();
   }
