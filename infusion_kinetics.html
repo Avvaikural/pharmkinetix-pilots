@@ -531,7 +531,11 @@ function drawCurvePlotArea(svg, curves, opts){
   // Labels are laid out defensively since two markers can legitimately
   // land close together (e.g. time-to-SS right next to the stop time):
   // flip to the left of the line when there's no room to the right, and
-  // stagger vertically when two labels would otherwise overlap.
+  // stagger vertically when two labels' actual left/right extents overlap
+  // (computed as real intervals, not distance-between-anchors -- a
+  // left-anchored label extends only rightward from its point, so two
+  // anchors that are "close" by that naive measure can still not overlap,
+  // and two anchors that are "far" can still overlap if one label is long).
   const placedLabels = [];
   (opts.vlines||[]).forEach(vl=>{
     if(vl.t==null || vl.t>tMax) return;
@@ -541,9 +545,11 @@ function drawCurvePlotArea(svg, curves, opts){
     const estWidth = plainText.length*7.5+8;
     const flipLeft = (px+4+estWidth) > (M.left+innerW);
     const anchorX = flipLeft ? px-4 : px+4;
+    const left = flipLeft ? anchorX-estWidth : anchorX;
+    const right = flipLeft ? anchorX : anchorX+estWidth;
     let row = 0;
-    while(placedLabels.some(p=>p.row===row && Math.abs(p.x-anchorX) < (estWidth+p.w)/2)) row++;
-    placedLabels.push({x:anchorX, w:estWidth, row});
+    while(placedLabels.some(p=>p.row===row && left < p.right+6 && right > p.left-6)) row++;
+    placedLabels.push({left, right, row});
     const textEl = el("text",{x:anchorX,y:M.top+14+row*17,"text-anchor":flipLeft?"end":"start","font-size":"14","font-weight":"700",fill:vl.color||"#5E6A71"});
     svg.appendChild(textEl);
     if(vl.labelHtml) textEl.innerHTML = vl.labelHtml;
@@ -729,7 +735,7 @@ const Sim = (function(){
     const div = document.getElementById("simSharedControls");
     div.innerHTML = "";
     ctrls.Vd = makeSliderControl(div, {label:"Volume of Distribution (V<sub>d</sub>)", min:5, max:300, step:1, value:50, suffix:"L", onChange:refresh});
-    ctrls.Cl = makeSliderControl(div, {label:"Clearance (Cl)", min:0.5, max:50, step:0.1, value:5, suffix:"L/h", onChange:refresh});
+    ctrls.Cl = makeSliderControl(div, {label:"Clearance (Cl)", min:0.5, max:50, step:0.1, value:10, suffix:"L/h", onChange:refresh});
   }
 
   function renderStrategyControls(){
@@ -740,7 +746,7 @@ const Sim = (function(){
       sc.k0 = makeSliderControl(div, {label:"Infusion Rate (k<sub>0</sub>)", min:5, max:2000, step:5, value:100, suffix:"mg/h", onChange:refresh});
     } else if(strategy==="bolusLD"){
       sc.Css = makeSliderControl(div, {label:"Target Steady-State Concentration (C<sub>ss</sub>)", min:0.5, max:200, step:0.5, value:20, suffix:"mg/L", onChange:refresh});
-      sc.XLD = makeSliderControl(div, {label:"Bolus Loading Dose (X<sub>LD</sub>)", min:1, max:20000, step:1, value:1000, suffix:"mg", onChange:refresh});
+      sc.XLD = makeSliderControl(div, {label:"Bolus Loading Dose (X<sub>LD</sub>)", min:1, max:20000, step:1, value:500, suffix:"mg", onChange:refresh});
       div.insertAdjacentHTML("beforeend", `<div class="btn-row"><button class="btn small" id="simMatchLDBtn">Set loading dose to C<sub>ss</sub>&times;V<sub>d</sub> (matched)</button></div>`);
       document.getElementById("simMatchLDBtn").onclick = ()=>{
         const Vd = ctrls.Vd.getValue();
@@ -749,8 +755,8 @@ const Sim = (function(){
       };
     } else {
       sc.Css = makeSliderControl(div, {label:"Target Steady-State Concentration (C<sub>ss</sub>)", min:0.5, max:200, step:0.5, value:20, suffix:"mg/L", onChange:refresh});
-      sc.k0star = makeSliderControl(div, {label:"Maximum Allowable Infusion Rate (k<sub>0</sub>*)", min:10, max:20000, step:10, value:2000, suffix:"mg/h", onChange:refresh});
-      sc.T = makeSliderControl(div, {label:"Loading Infusion Duration (T)", min:0.05, max:24, step:0.05, value:0.5, suffix:"h", onChange:refresh});
+      sc.k0star = makeSliderControl(div, {label:"Maximum Allowable Infusion Rate (k<sub>0</sub>*)", min:10, max:20000, step:10, value:210, suffix:"mg/h", onChange:refresh});
+      sc.T = makeSliderControl(div, {label:"Loading Infusion Duration (T)", min:0.05, max:24, step:0.05, value:2.5, suffix:"h", onChange:refresh});
       div.insertAdjacentHTML("beforeend", `
         <div class="btn-row">
           <button class="btn small" id="simSolveTBtn">Solve T for this k<sub>0</sub>*</button>
@@ -929,16 +935,45 @@ const Sim = (function(){
   function naturalTMax(){
     const p = currentParams();
     const K = p.Cl/p.Vd;
-    return Math.max(24, (5*0.693/K)*1.4);
+    const thalf = 0.693/K;
+    // Must account for the CURRENT stop time, not just half-life -- a
+    // clinically realistic stop time (e.g. 24h for esmolol) can be
+    // completely unrelated to 5xt1/2 (about 1h for esmolol), and the
+    // display window has to extend past whichever is actually running
+    // long enough to show the decline, not just cut off at the plateau.
+    const stopT = stopCtrl ? stopCtrl.getValue() : 5*thalf;
+    return Math.max(24, stopT + 5*thalf);
   }
   function resetXRange(){
     if(xRangeCtrl) xRangeCtrl.setValue(Math.ceil(naturalTMax()/6)*6, true);
   }
 
+  // Switching strategy also resets Vd/Cl to a scenario that actually makes
+  // the case for that strategy, rather than carrying over whatever the
+  // sliders happened to be. Continuous gets a short-enough half-life that
+  // just waiting is genuinely practical (t1/2~3.5h, ~17h to steady state);
+  // both loading strategies share a much longer half-life (t1/2~17h, ~87h
+  // to steady state without help) since that's the actual premise for
+  // needing a loading dose or loading infusion at all. The loading
+  // strategies also get an explicit, shorter stop time (48h) rather than
+  // the generic 5xhalf-life default -- otherwise the stop time and the
+  // "time to SS" marker land at nearly the same point by coincidence,
+  // which quietly erases the whole visual point of the loading approach
+  // (reaching Css long before continuous-alone ever would have).
+  const STRATEGY_VDCL = {
+    continuous: {Vd:50, Cl:10, stopTime:null},
+    bolusLD: {Vd:25, Cl:1, stopTime:48},
+    loadingInf: {Vd:25, Cl:1, stopTime:48}
+  };
   function setStrategy(newStrat){
     strategy = newStrat;
     document.querySelectorAll("#simStrategyRow .strategy-btn").forEach(b=>b.classList.toggle("active", b.dataset.strategy===newStrat));
     renderStrategyControls();
+    const vc = STRATEGY_VDCL[newStrat];
+    setSlider(ctrls.Vd, vc.Vd);
+    setSlider(ctrls.Cl, vc.Cl);
+    if(vc.stopTime!=null) setSlider(stopCtrl, vc.stopTime);
+    else resetStopTime();
     resetXRange();
     refresh();
   }
@@ -949,12 +984,18 @@ const Sim = (function(){
   // concentration -- 10 mg/mL for esmolol (its actual premixed product),
   // 1 mg/mL for the other two (a real, documented dilution convention
   // specifically used to make mg/h and mL/h numerically identical).
+  // stopTime is each drug's typical real infusion duration in practice --
+  // NOT 5xhalf-life. For esmolol especially those are wildly different:
+  // 5xt1/2 is about 1 hour, but published use continues the infusion for
+  // much longer (17+-9h in one postop arrhythmia series, up to 24h in
+  // another) since it's titrated for ongoing rate/BP control, not run
+  // "until steady state, then stopped."
   const PRESETS = {
-    esmolol: { label:"Esmolol", strategy:"continuous", Vd:300, Cl:1400, k0:210,
+    esmolol: { label:"Esmolol", strategy:"continuous", Vd:300, Cl:1400, k0:210, stopTime:24,
       note:"Concentration 10 mg/mL \u2192 pump rate = 210 \u00f7 10 = 21 mL/h" },
-    valproic: { label:"Valproic Acid", strategy:"bolusLD", Vd:25, Cl:1.5, Css:80, XLD:2000,
+    valproic: { label:"Valproic Acid", strategy:"bolusLD", Vd:25, Cl:1.5, Css:80, XLD:2000, stopTime:48,
       note:"Concentration 1 mg/mL \u2192 maintenance pump rate = 120 mL/h" },
-    aminophylline: { label:"Aminophylline", strategy:"loadingInf", Vd:35, Cl:3.5, Css:10, k0star:800, T:0.5,
+    aminophylline: { label:"Aminophylline", strategy:"loadingInf", Vd:35, Cl:3.5, Css:10, k0star:800, T:0.5, stopTime:24,
       note:"Concentration 1 mg/mL \u2192 loading pump rate = 800 mL/h for 30 min, then 35 mL/h maintenance" }
   };
   function applyPreset(key){
@@ -975,7 +1016,7 @@ const Sim = (function(){
       setSlider(sc.k0star, p.k0star);
       setSlider(sc.T, p.T);
     }
-    resetStopTime();
+    setSlider(stopCtrl, p.stopTime);
     resetXRange();
     document.getElementById("simPresetNote").innerHTML = `<b>${p.label}</b>: ${p.note}`;
     refresh();
