@@ -177,6 +177,9 @@
   }
   .ref-chip button{background:none; border:none; cursor:pointer; color:var(--crimson); font-weight:700; font-size:1rem; padding:0 2px;}
   #theoryPlot{ max-width:50%; display:block; margin:0 auto; }
+  .ct-table{ font-size:0.82rem; width:100%; }
+  .ct-table th{ font-size:0.78rem; position:sticky; top:0; background:#f4f2ec; }
+  .ct-table-wrap{ max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; }
 </style>
 </head><body>
 
@@ -272,6 +275,17 @@
   <div class="twocol">
     <div class="col">
       <div class="panel card">
+        <h3 style="margin-top:0;">Real-Drug Presets</h3>
+        <p class="hint" style="margin-top:-2px;">Three real drugs, each the standard clinical illustration of one strategy \u2014 loads every parameter, including the pump rate a nurse would actually set.</p>
+        <div class="strategy-row" id="simPresetRow">
+          <button class="strategy-btn" data-preset="esmolol"><b>Esmolol</b>Short t&frac12; \u2014 continuous infusion alone reaches C<sub>ss</sub> in ~45 min</button>
+          <button class="strategy-btn" data-preset="valproic"><b>Valproic Acid</b>Long t&frac12;, wide margin \u2014 safe bolus loading dose</button>
+          <button class="strategy-btn" data-preset="aminophylline"><b>Aminophylline</b>Long t&frac12;, narrow margin \u2014 controlled loading infusion</button>
+        </div>
+        <p class="hint" id="simPresetNote" style="margin-top:6px;"></p>
+      </div>
+
+      <div class="panel card">
         <h3 style="margin-top:0;">Patient / Drug Parameters</h3>
         <div id="simSharedControls"></div>
         <button class="btn small" id="simSetRefBtn">Set as Reference</button>
@@ -292,6 +306,14 @@
         <h3 style="margin-top:0;">Infusion Duration</h3>
         <p class="hint" style="margin-top:-2px;">Every infusion has to stop sometime for AUC to mean anything &mdash; this isn't optional. The X-axis range (next to the chart) only controls what the plot shows; it never affects AUC.</p>
         <div id="simStopSlot"></div>
+      </div>
+
+      <div class="panel card">
+        <h3 style="margin-top:0;">Concentration-Time Table</h3>
+        <p class="hint" style="margin-top:-2px;">Spaced to cover the rise, the stop, and the decline afterward in half-life steps &mdash; the decline is where this is most useful for reading off exact values.</p>
+        <div class="ct-table-wrap">
+          <table class="ct-table" id="simCtTable"></table>
+        </div>
       </div>
     </div>
 
@@ -503,12 +525,29 @@ function drawCurvePlotArea(svg, curves, opts){
     svg.appendChild(el("path",{d, fill:curve.color, "fill-opacity":"0.15", stroke:"none"}));
   });
 
-  // Vertical marker lines (e.g. stop time, or a strategy phase transition)
+  // Vertical marker lines (e.g. stop time, or a strategy phase transition).
+  // labelHtml supports tspan markup (e.g. a subscript) for cases where a
+  // plain string label isn't enough; falls back to plain text otherwise.
+  // Labels are laid out defensively since two markers can legitimately
+  // land close together (e.g. time-to-SS right next to the stop time):
+  // flip to the left of the line when there's no room to the right, and
+  // stagger vertically when two labels would otherwise overlap.
+  const placedLabels = [];
   (opts.vlines||[]).forEach(vl=>{
     if(vl.t==null || vl.t>tMax) return;
     const px = xPx(vl.t);
     svg.appendChild(el("line",{x1:px,x2:px,y1:M.top,y2:M.top+innerH,stroke:vl.color||"#5E6A71","stroke-width":1.5,"stroke-dasharray":"4,3"}));
-    svg.appendChild(el("text",{x:px+4,y:M.top+12,"font-size":"11",fill:vl.color||"#5E6A71"})).textContent=vl.label||"";
+    const plainText = stripTags((vl.labelHtml||vl.label||"").replace(/<tspan[^>]*>/g,"").replace(/<\/tspan>/g,""));
+    const estWidth = plainText.length*7.5+8;
+    const flipLeft = (px+4+estWidth) > (M.left+innerW);
+    const anchorX = flipLeft ? px-4 : px+4;
+    let row = 0;
+    while(placedLabels.some(p=>p.row===row && Math.abs(p.x-anchorX) < (estWidth+p.w)/2)) row++;
+    placedLabels.push({x:anchorX, w:estWidth, row});
+    const textEl = el("text",{x:anchorX,y:M.top+14+row*17,"text-anchor":flipLeft?"end":"start","font-size":"14","font-weight":"700",fill:vl.color||"#5E6A71"});
+    svg.appendChild(textEl);
+    if(vl.labelHtml) textEl.innerHTML = vl.labelHtml;
+    else textEl.textContent = vl.label||"";
   });
 
   curves.forEach(curve=>{
@@ -523,7 +562,78 @@ function drawCurvePlotArea(svg, curves, opts){
       svg.appendChild(el("circle",{cx:xPx(curve.marker.t), cy:yPx(curve.marker.c), r:5, fill:curve.color||"#981E32", stroke:"white","stroke-width":1.5}));
     }
   });
+
+  // Hover layer: an empty group, freshly appended on every redraw (since
+  // svg.innerHTML="" above wipes it), but with no listeners of its own --
+  // attachHoverTooltip() puts the actual mousemove/mouseleave listeners on
+  // the persistent <svg> element itself, once, and reads current curve
+  // data from svg.__hoverState (refreshed below) on every move. That
+  // split matters: re-attaching a listener on every redraw would stack a
+  // new one each time instead of replacing it.
+  const dotsHtml = curves.map((c,i)=>`<circle id="hoverDot${i}" r="5" fill="${c.color}" stroke="#fff" stroke-width="2" style="display:none;"/>`).join("");
+  svg.insertAdjacentHTML("beforeend", `
+    <g id="hoverLayer" style="display:none; pointer-events:none;">
+      <line id="hoverCrosshair" x1="0" y1="${M.top}" x2="0" y2="${M.top+innerH}" stroke="#9AA3B2" stroke-width="1" stroke-dasharray="3,3"/>
+      ${dotsHtml}
+      <rect id="hoverTooltipBg" fill="#1F2430" opacity="0.92" rx="6"/>
+      <text id="hoverTooltipText" font-size="12" fill="#fff"></text>
+    </g>
+  `);
+  svg.__hoverState = {curves, xPx, yPx, tMax, logY, yMin, M, innerW, innerH};
+
   return {xPx,yPx,tMax,yMax};
+}
+function interpolateCurve(points, t){
+  if(t<=points[0].t) return points[0].c;
+  if(t>=points[points.length-1].t) return points[points.length-1].c;
+  for(let i=1;i<points.length;i++){
+    if(points[i].t>=t){
+      const p0=points[i-1], p1=points[i];
+      const frac = (t-p0.t)/(p1.t-p0.t);
+      return p0.c + frac*(p1.c-p0.c);
+    }
+  }
+  return points[points.length-1].c;
+}
+function stripTags(html){ return html.replace(/<[^>]*>/g, ""); }
+// Attaches hover listeners ONCE per svg element. Reads svg.__hoverState,
+// which drawCurvePlotArea refreshes on every redraw, so the same listener
+// always sees the current curves without needing to be re-attached.
+function attachHoverTooltip(svg, yUnit){
+  if(svg.__hoverAttached) return;
+  svg.__hoverAttached = true;
+  svg.addEventListener("mousemove",(e)=>{
+    const state = svg.__hoverState;
+    const hoverLayer = svg.querySelector("#hoverLayer");
+    if(!state || !hoverLayer) return;
+    const pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+    const ctm = svg.getScreenCTM(); if(!ctm) return;
+    const svgP = pt.matrixTransform(ctm.inverse());
+    const {M, innerW, innerH, tMax, curves, xPx, yPx} = state;
+    if(svgP.x<M.left || svgP.x>M.left+innerW || svgP.y<M.top || svgP.y>M.top+innerH){
+      hoverLayer.style.display="none"; return;
+    }
+    let t = ((svgP.x-M.left)/innerW)*tMax;
+    t = Math.max(0, Math.min(tMax, t));
+    hoverLayer.style.display="block";
+    const xPix = xPx(t);
+    svg.querySelector("#hoverCrosshair").setAttribute("x1",xPix.toFixed(1));
+    svg.querySelector("#hoverCrosshair").setAttribute("x2",xPix.toFixed(1));
+    const lines = [`t = ${fmt(t,2)} h`];
+    curves.forEach((c,i)=>{
+      const val = interpolateCurve(c.points, t);
+      const dot = svg.querySelector(`#hoverDot${i}`);
+      if(dot){ dot.style.display="block"; dot.setAttribute("cx",xPix.toFixed(1)); dot.setAttribute("cy",yPx(state.logY?Math.max(state.yMin,val):val).toFixed(1)); }
+      lines.push(`${stripTags(c.label)}: ${fmt(val,2)} ${yUnit}`);
+    });
+    const tw=210, th=16+lines.length*18;
+    let tx = xPix+12; if(tx+tw > M.left+innerW) tx = xPix-tw-12;
+    const ty = M.top+6;
+    const bg = svg.querySelector("#hoverTooltipBg"), txt = svg.querySelector("#hoverTooltipText");
+    bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw); bg.setAttribute("height",th);
+    txt.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}">${l}</tspan>`).join("");
+  });
+  svg.addEventListener("mouseleave", ()=>{ const hl=svg.querySelector("#hoverLayer"); if(hl) hl.style.display="none"; });
 }
 function renderLegend(container, curves){
   container.innerHTML = curves.map(c=>`<span><span class="swatch" style="background:${c.color}"></span>${c.label}</span>`).join("");
@@ -718,6 +828,38 @@ const Sim = (function(){
     return aucToStop + tailAUC;
   }
 
+  function fmtTime(t){
+    if(t>=100) return fmt(t,0);
+    if(t>=10) return fmt(t,1);
+    return fmt(t,2);
+  }
+  // Rise-phase points as fractions of the stop time, plus decline-phase
+  // points spaced by half-life past the stop -- half-life spacing is what
+  // actually makes the decline readable (each row roughly halves), which
+  // fixed clock-time spacing wouldn't guarantee across very different Vd/Cl.
+  function ctTableTimes(stopTime, thalf){
+    const times = new Set();
+    [0,0.25,0.5,0.75,1].forEach(f=> times.add(Math.round(stopTime*f*100)/100));
+    for(let n=1;n<=6;n++){ times.add(Math.round((stopTime+n*thalf)*100)/100); }
+    return [...times].filter(t=>t>=0).sort((a,b)=>a-b);
+  }
+  function updateCtTable(snap, refSnap){
+    const K = snap.params.Cl/snap.params.Vd, thalf = 0.693/K;
+    const times = ctTableTimes(snap.stopTime, thalf);
+    let html = `<tr><th>t (h)</th>${refSnap?"<th>Reference (mg/L)</th>":""}<th>Active (mg/L)</th></tr>`;
+    times.forEach(t=>{
+      const cA = concAt(t, snap.strategy, snap.params, snap.stopTime);
+      const isStop = Math.abs(t-snap.stopTime)<1e-6;
+      html += `<tr${isStop?' style="font-weight:700;"':''}><td>${fmtTime(t)}${isStop?' (stop)':''}</td>`;
+      if(refSnap){
+        const cR = concAt(t, refSnap.strategy, refSnap.params, refSnap.stopTime);
+        html += `<td>${fmt(cR,2)}</td>`;
+      }
+      html += `<td>${fmt(cA,2)}</td></tr>`;
+    });
+    document.getElementById("simCtTable").innerHTML = html;
+  }
+
   function rowFromSnapshot(snap, labelHtml){
     const K = snap.params.Cl/snap.params.Vd, thalf = 0.693/K, timeToSS = 5*thalf;
     const auc = aucToInfinity(snap.strategy, snap.params, snap.stopTime);
@@ -746,8 +888,8 @@ const Sim = (function(){
     }
 
     const vlines = [
-      {t:stopTime, label:"stop", color:"#5E6A71"},
-      {t:timeToSS, label:"time to SS", color:"#4472C4"}
+      {t:stopTime, labelHtml:`Infusion time = ${fmt(stopTime,1)} h`, color:"#5E6A71"},
+      {t:timeToSS, labelHtml:`t<tspan baseline-shift="sub" font-size="10">ss</tspan> = ${fmt(timeToSS,1)} h`, color:"#4472C4"}
     ];
     if(strategy==="loadingInf") vlines.push({t:sc.T.getValue(), label:"end of loading infusion", color:"#3f7a52"});
 
@@ -775,6 +917,7 @@ const Sim = (function(){
     const cAtStop = concAt(stopTime, strategy, p, null);
     html += `<tr><td colspan="6" style="text-align:left;">Concentration at stop time (${fmt(stopTime,1)} h) = ${fmt(cAtStop,2)} mg/L. AUC is calculated to complete decay (0&rarr;&infin;), independent of the X-axis range above.</td></tr>`;
     document.getElementById("simOutTable").innerHTML = html;
+    updateCtTable(snap, referenceSnapshot);
 
     if(strategy==="loadingInf"){
       const cEnd = infCLoadingInfusion(sc.k0star.getValue(), p.k0, sc.T.getValue(), p.Vd, p.Cl, sc.T.getValue());
@@ -800,6 +943,44 @@ const Sim = (function(){
     refresh();
   }
 
+  // Three real drugs, each the standard clinical illustration of one
+  // strategy, with parameters chosen (per discussion) so the resulting
+  // pump rate lands on a whole number at each drug's real prepared
+  // concentration -- 10 mg/mL for esmolol (its actual premixed product),
+  // 1 mg/mL for the other two (a real, documented dilution convention
+  // specifically used to make mg/h and mL/h numerically identical).
+  const PRESETS = {
+    esmolol: { label:"Esmolol", strategy:"continuous", Vd:300, Cl:1400, k0:210,
+      note:"Concentration 10 mg/mL \u2192 pump rate = 210 \u00f7 10 = 21 mL/h" },
+    valproic: { label:"Valproic Acid", strategy:"bolusLD", Vd:25, Cl:1.5, Css:80, XLD:2000,
+      note:"Concentration 1 mg/mL \u2192 maintenance pump rate = 120 mL/h" },
+    aminophylline: { label:"Aminophylline", strategy:"loadingInf", Vd:35, Cl:3.5, Css:10, k0star:800, T:0.5,
+      note:"Concentration 1 mg/mL \u2192 loading pump rate = 800 mL/h for 30 min, then 35 mL/h maintenance" }
+  };
+  function applyPreset(key){
+    const p = PRESETS[key];
+    document.querySelectorAll("#simPresetRow .strategy-btn").forEach(b=>b.classList.toggle("active", b.dataset.preset===key));
+    strategy = p.strategy;
+    document.querySelectorAll("#simStrategyRow .strategy-btn").forEach(b=>b.classList.toggle("active", b.dataset.strategy===p.strategy));
+    renderStrategyControls();
+    setSlider(ctrls.Vd, p.Vd);
+    setSlider(ctrls.Cl, p.Cl);
+    if(p.strategy==="continuous"){
+      setSlider(sc.k0, p.k0);
+    } else if(p.strategy==="bolusLD"){
+      setSlider(sc.Css, p.Css);
+      setSlider(sc.XLD, p.XLD);
+    } else {
+      setSlider(sc.Css, p.Css);
+      setSlider(sc.k0star, p.k0star);
+      setSlider(sc.T, p.T);
+    }
+    resetStopTime();
+    resetXRange();
+    document.getElementById("simPresetNote").innerHTML = `<b>${p.label}</b>: ${p.note}`;
+    refresh();
+  }
+
   function setReference(){
     referenceSnapshot = currentSnapshot();
     const p = referenceSnapshot.params;
@@ -822,6 +1003,9 @@ const Sim = (function(){
     xRangeCtrl = makeSliderControl(document.getElementById("simTimeSlot"), {label:"X-axis Range (display only)", min:6, max:500, step:6, value:24, suffix:"h", onChange:refresh});
     resetXRange();
 
+    document.querySelectorAll("#simPresetRow .strategy-btn").forEach(btn=>{
+      btn.onclick = ()=> applyPreset(btn.dataset.preset);
+    });
     document.querySelectorAll("#simStrategyRow .strategy-btn").forEach(btn=>{
       btn.onclick = ()=> setStrategy(btn.dataset.strategy);
     });
@@ -834,6 +1018,7 @@ const Sim = (function(){
       };
     });
     document.getElementById("simSetRefBtn").onclick = setReference;
+    attachHoverTooltip(document.getElementById("simSvg"), "mg/L");
     refresh();
   }
   return {init};
