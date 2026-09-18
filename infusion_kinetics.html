@@ -954,14 +954,16 @@ const Sim = (function(){
   // just waiting is genuinely practical (t1/2~3.5h, ~17h to steady state);
   // both loading strategies share a much longer half-life (t1/2~17h, ~87h
   // to steady state without help) since that's the actual premise for
-  // needing a loading dose or loading infusion at all. The loading
-  // strategies also get an explicit, shorter stop time (48h) rather than
-  // the generic 5xhalf-life default -- otherwise the stop time and the
-  // "time to SS" marker land at nearly the same point by coincidence,
-  // which quietly erases the whole visual point of the loading approach
-  // (reaching Css long before continuous-alone ever would have).
+  // needing a loading dose or loading infusion at all. All three get an
+  // explicit stop time rather than the generic 5xhalf-life default --
+  // that generic default lands the stop right AT time-to-SS, which for
+  // continuous alone barely shows any steady state actually being held
+  // (rises, brushes the plateau, immediately declines), and for the
+  // loading strategies erases the whole point of the approach by
+  // coincidentally lining the stop up with the moment continuous-alone
+  // would have arrived anyway.
   const STRATEGY_VDCL = {
-    continuous: {Vd:50, Cl:10, stopTime:null},
+    continuous: {Vd:50, Cl:10, stopTime:36},
     bolusLD: {Vd:25, Cl:1, stopTime:48},
     loadingInf: {Vd:25, Cl:1, stopTime:48}
   };
@@ -972,8 +974,7 @@ const Sim = (function(){
     const vc = STRATEGY_VDCL[newStrat];
     setSlider(ctrls.Vd, vc.Vd);
     setSlider(ctrls.Cl, vc.Cl);
-    if(vc.stopTime!=null) setSlider(stopCtrl, vc.stopTime);
-    else resetStopTime();
+    setSlider(stopCtrl, vc.stopTime);
     resetXRange();
     refresh();
   }
@@ -1040,7 +1041,7 @@ const Sim = (function(){
     renderSharedControls();
     renderStrategyControls();
     stopCtrl = makeSliderControl(document.getElementById("simStopSlot"), {label:"Infusion Duration (T) \u2014 when the infusion stops", min:0.5, max:500, step:0.5, value:12, suffix:"h", onChange:refresh});
-    resetStopTime();
+    setSlider(stopCtrl, STRATEGY_VDCL.continuous.stopTime);
     xRangeCtrl = makeSliderControl(document.getElementById("simTimeSlot"), {label:"X-axis Range (display only)", min:6, max:500, step:6, value:24, suffix:"h", onChange:refresh});
     resetXRange();
 
