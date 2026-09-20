@@ -432,7 +432,77 @@ function drawCurvePlotArea(svg, curves, opts){
       svg.appendChild(el("circle",{cx:xPx(curve.marker.t), cy:yPx(curve.marker.c), r:5, fill:curve.color||"#981E32", stroke:"white","stroke-width":1.5}));
     }
   });
+
+  const dotsHtml = curves.map((c,i)=>`<circle id="hoverDot${i}" r="5" fill="${c.color}" stroke="#fff" stroke-width="2" style="display:none;"/>`).join("");
+  svg.insertAdjacentHTML("beforeend", `
+    <g id="hoverLayer" style="display:none; pointer-events:none;">
+      <line id="hoverCrosshair" x1="0" y1="${M.top}" x2="0" y2="${M.top+innerH}" stroke="#9AA3B2" stroke-width="1" stroke-dasharray="3,3"/>
+      ${dotsHtml}
+      <rect id="hoverTooltipBg" fill="#F0F1F2" fill-opacity="0.93" stroke="#5E6A71" stroke-width="1.3" rx="6"/>
+      <text id="hoverTooltipText" font-size="12"></text>
+    </g>
+  `);
+  svg.__hoverState = {curves, xPx, yPx, tMax, logY, yMin, M, innerW, innerH};
+
   return {xPx,yPx,tMax,yMax};
+}
+function interpolateCurve(points, t){
+  if(t<=points[0].t) return points[0].c;
+  if(t>=points[points.length-1].t) return points[points.length-1].c;
+  for(let i=1;i<points.length;i++){
+    if(points[i].t>=t){
+      const p0=points[i-1], p1=points[i];
+      if(p1.t===p0.t) return p1.c;
+      const frac = (t-p0.t)/(p1.t-p0.t);
+      return p0.c + frac*(p1.c-p0.c);
+    }
+  }
+  return points[points.length-1].c;
+}
+function stripTags(html){ return html.replace(/<[^>]*>/g, ""); }
+function attachHoverTooltip(svg, yUnit){
+  if(svg.__hoverAttached) return;
+  svg.__hoverAttached = true;
+  svg.addEventListener("mousemove",(e)=>{
+    const state = svg.__hoverState;
+    const hoverLayer = svg.querySelector("#hoverLayer");
+    if(!state || !hoverLayer) return;
+    const pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+    const ctm = svg.getScreenCTM(); if(!ctm) return;
+    const svgP = pt.matrixTransform(ctm.inverse());
+    const {M, innerW, innerH, tMax, curves, xPx, yPx} = state;
+    if(svgP.x<M.left || svgP.x>M.left+innerW || svgP.y<M.top || svgP.y>M.top+innerH){
+      hoverLayer.style.display="none"; return;
+    }
+    let t = ((svgP.x-M.left)/innerW)*tMax;
+    t = Math.max(0, Math.min(tMax, t));
+    hoverLayer.style.display="block";
+    const xPix = xPx(t);
+    svg.querySelector("#hoverCrosshair").setAttribute("x1",xPix.toFixed(1));
+    svg.querySelector("#hoverCrosshair").setAttribute("x2",xPix.toFixed(1));
+    const lines = [{text:`t = ${fmt(t,2)} h`, color:"#1F2430"}];
+    curves.forEach((c,i)=>{
+      const dot = svg.querySelector(`#hoverDot${i}`);
+      const curveEnd = c.points[c.points.length-1].t;
+      if(t > curveEnd + 1e-6){
+        if(dot) dot.style.display="none";
+        return;
+      }
+      const val = interpolateCurve(c.points, t);
+      if(dot){ dot.style.display="block"; dot.setAttribute("cx",xPix.toFixed(1)); dot.setAttribute("cy",yPx(state.logY?Math.max(state.yMin,val):val).toFixed(1)); }
+      const label = c.labelFn ? c.labelFn(t) : stripTags(c.label);
+      lines.push({text:`${label}: ${fmt(val,2)} ${yUnit}`, color:c.color||"#1F2430"});
+    });
+    const estCharW = 6.8;
+    const tw = Math.max(...lines.map(l=>l.text.length*estCharW)) + 20;
+    const th = 16+lines.length*18;
+    let tx = xPix+12; if(tx+tw > M.left+innerW) tx = xPix-tw-12;
+    const ty = M.top+6;
+    const bg = svg.querySelector("#hoverTooltipBg"), txt = svg.querySelector("#hoverTooltipText");
+    bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw.toFixed(1)); bg.setAttribute("height",th);
+    txt.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}" fill="${l.color}">${l.text}</tspan>`).join("");
+  });
+  svg.addEventListener("mouseleave", ()=>{ const hl=svg.querySelector("#hoverLayer"); if(hl) hl.style.display="none"; });
 }
 function renderLegend(container, curves){
   container.innerHTML = curves.map(c=>`<span><span class="swatch" style="background:${c.color}"></span>${c.label}</span>`).join("");
@@ -651,6 +721,7 @@ const AbsBA = (function(){
     });
     document.getElementById("absDoseModeBtn").onclick = toggleDoseMode;
     document.getElementById("absGenerateBtn").onclick = generateScenario;
+    attachHoverTooltip(document.getElementById("absSvg"), "mg/L");
     refresh();
   }
   return {init};
@@ -804,6 +875,7 @@ const RelBE = (function(){
     });
     document.getElementById("relDoseModeBtn").onclick = toggleDoseMode;
     document.getElementById("relGenerateBtn").onclick = generateScenario;
+    attachHoverTooltip(document.getElementById("relSvg"), "mg/L");
     refresh();
   }
   return {init};
