@@ -176,9 +176,7 @@
     border-radius:20px; padding:7px 14px; font-size:0.9rem; margin-top:8px; color:var(--gray); font-weight:700;
   }
   .ref-chip button{background:none; border:none; cursor:pointer; color:var(--crimson); font-weight:700; font-size:1rem; padding:0 2px;}
-  /* Theory chart here is a central 3-scenario comparison demo, not a
-     small supplementary illustration, so it stays full width unlike the
-     Infusion module's before/after toggle. */
+  #theoryPlot{ max-width:75%; display:block; margin:0 auto; }
   .ct-table{ font-size:0.82rem; width:100%; }
   .ct-table th{ font-size:0.78rem; position:sticky; top:0; background:#f4f2ec; }
   .ct-table-wrap{ max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; }
@@ -525,7 +523,7 @@ function drawCurvePlotArea(svg, curves, opts){
     const c = logY ? Math.max(yMin, Math.min(yMax, hl.c)) : hl.c;
     if(c>yMax || c<(logY?yMin:0)) return;
     const py = yPx(c);
-    svg.appendChild(el("line",{x1:M.left, x2:M.left+innerW, y1:py, y2:py, stroke:hl.color||"#981E32", "stroke-width":1.5, "stroke-dasharray":"7,4"}));
+    svg.appendChild(el("line",{x1:M.left, x2:M.left+innerW, y1:py, y2:py, stroke:hl.color||"#981E32", "stroke-width":hl.strokeWidth||1.5, "stroke-dasharray":hl.dash||"7,4", "stroke-linecap":hl.dotted?"round":"butt"}));
     if(hl.label){
       svg.appendChild(el("text",{x:M.left+innerW-6, y:py-5, "text-anchor":"end", "font-size":"11", "font-weight":"700", fill:hl.color||"#981E32"})).textContent=hl.label;
     }
@@ -568,7 +566,7 @@ function drawCurvePlotArea(svg, curves, opts){
       const cmd = i===0?"M":"L";
       d += `${cmd}${xPx(p.t)},${yPx(c)} `;
     });
-    svg.appendChild(el("path",{d, fill:"none", stroke:curve.color||"#981E32", "stroke-width":curve.thin?1.6:2.2, "stroke-dasharray":curve.dashed?"6,4":"none"}));
+    svg.appendChild(el("path",{d, fill:"none", stroke:curve.color||"#981E32", "stroke-width":curve.strokeWidth!=null?curve.strokeWidth:(curve.thin?1.6:2.2), "stroke-dasharray":curve.dashed?"6,4":"none"}));
   });
 
   // Fill-only "shading" curves (noStroke) carry no meaningful value to
@@ -580,7 +578,7 @@ function drawCurvePlotArea(svg, curves, opts){
     <g id="hoverLayer" style="display:none; pointer-events:none;">
       <line id="hoverCrosshair" x1="0" y1="${M.top}" x2="0" y2="${M.top+innerH}" stroke="#9AA3B2" stroke-width="1" stroke-dasharray="3,3"/>
       ${dotsHtml}
-      <rect id="hoverTooltipBg" fill="#FBF3E6" fill-opacity="0.93" stroke="#981E32" stroke-width="1.3" rx="6"/>
+      <rect id="hoverTooltipBg" fill="#F0F1F2" fill-opacity="0.93" stroke="#5E6A71" stroke-width="1.3" rx="6"/>
       <text id="hoverTooltipText" font-size="12"></text>
     </g>
   `);
@@ -718,6 +716,19 @@ const ACCUM_DRUGS = [
   { name:"Phenytoin (linear range)", Vd_per_kg:0.75, thalf:22, weight:70, tau:12 },
 ];
 function jitter(lo,hi){ lo=lo===undefined?0.8:lo; hi=hi===undefined?1.2:hi; return lo+Math.random()*(hi-lo); }
+// Real IV bolus regimens are dosed at a small set of practical intervals
+// reflecting how many times a day a dose is given (6h=4x/day, 8h=3x/day,
+// 12h=2x/day, 24h=once daily) -- snaps a candidate interval to whichever
+// of these it's closest to, rather than an arbitrary whole number of hours.
+const PRACTICAL_TAU = [6, 8, 12, 24];
+function roundToPracticalTau(t){
+  let best = PRACTICAL_TAU[0], bestDiff = Math.abs(t-best);
+  PRACTICAL_TAU.forEach(p=>{
+    const diff = Math.abs(t-p);
+    if(diff<bestDiff){ best=p; bestDiff=diff; }
+  });
+  return best;
+}
 function pickDrug(){ return ACCUM_DRUGS[Math.floor(Math.random()*ACCUM_DRUGS.length)]; }
 function drugToVdCl(d){
   const Vd = d.Vd_per_kg*d.weight;
@@ -845,7 +856,7 @@ const Sim = (function(){
     const curves = [
       {points:sawBefore, color:"#981E32", fillArea:true, fillOpacity:0.04, noStroke:true},
       {points:sawAfter, color:"#981E32", fillArea:true, fillOpacity:0.14, noStroke:true},
-      {points:sawPts, color:"#981E32", label:"Sawtooth (actual)"},
+      {points:sawPts, color:"#981E32", strokeWidth:1.8, label:"Sawtooth (actual)"},
       {points:envPts, color:"#4472C4", dashed:true, thin:true, label:"Envelope (average trend)"}
     ];
 
@@ -863,8 +874,8 @@ const Sim = (function(){
     const dataMin = positiveVals.length ? Math.min(...positiveVals) : 0.01;
     const yMin = isLog ? Math.max(0.001, dataMin/5) : 0;
     const hlines = [
-      {c:mtc, color:"#981E32", label:"MTC"},
-      {c:mec, color:"#981E32", label:"MEC"}
+      {c:mtc, color:"#C0392B", label:"MTC", dash:"1,6", dotted:true, strokeWidth:2.5},
+      {c:mec, color:"#3f7a52", label:"MEC", dash:"1,6", dotted:true, strokeWidth:2.5}
     ];
     drawCurvePlotArea(document.getElementById("simSvg"), curves, {logY:isLog, tMax, yMax, yMin, hlines});
     renderLegend(document.getElementById("simLegend"), curves.filter(c=>!c.noStroke));
@@ -928,7 +939,7 @@ const CaseStudies = (function(){
   function genC1(){
     const d = pickDrug();
     const thalf = Math.round(d.thalf*jitter()*10)/10;
-    const tau = Math.max(1, Math.round(thalf*jitter(0.5,2.0)));
+    const tau = roundToPracticalTau(thalf*jitter(0.5,2.0));
     const K = 0.693/thalf;
     const CmaxSD = Math.round((0.5+Math.random()*49.5)*100)/100;
     const RA = 1/(1-Math.exp(-K*tau));
@@ -954,7 +965,7 @@ const CaseStudies = (function(){
     const VdJ = Math.round(Vd*jitter()*10)/10;
     const thalf = Math.round(d.thalf*jitter()*10)/10;
     const K = 0.693/thalf;
-    const tau = Math.max(1, Math.round(thalf*jitter(0.4,1.2)));
+    const tau = roundToPracticalTau(thalf*jitter(0.4,1.2));
     const X0 = Math.round((25+Math.random()*475)/5)*5;
     const CmaxSD = X0/VdJ;
     const CminSD = CmaxSD*Math.exp(-K*tau);
@@ -1165,7 +1176,7 @@ const Assessment = (function(){
       unit: "(unitless)",
       build(){
         const {K, thalf} = anchorVdCl();
-        const tau = Math.max(1, Math.round(thalf*jitterA()));
+        const tau = roundToPracticalTau(thalf*jitterA());
         return { prompt: `A drug has a half-life of ${fmt(thalf,1)} h and is given as an IV bolus every ${tau} h. Calculate the accumulation ratio, R<sub>A</sub>.`, correct: 1/(1-Math.exp(-K*tau)) };
       }
     },
@@ -1174,7 +1185,7 @@ const Assessment = (function(){
       unit: "mg/L",
       build(){
         const {K, thalf} = anchorVdCl();
-        const tau = Math.max(1, Math.round(thalf*jitterA()));
+        const tau = roundToPracticalTau(thalf*jitterA());
         const CmaxSD = Math.round((1+Math.random()*49)*10)/10;
         const RA = 1/(1-Math.exp(-K*tau));
         return { prompt: `A drug has a half-life of ${fmt(thalf,1)} h and is given every ${tau} h. The peak concentration after the first dose is ${CmaxSD} mg/L. Calculate the peak concentration at steady state.`, correct: RA*CmaxSD };
@@ -1185,7 +1196,7 @@ const Assessment = (function(){
       unit: "(unitless)",
       build(){
         const {Vd, K, thalf} = anchorVdCl();
-        const tau = Math.max(1, Math.round(thalf*jitterA()*0.6));
+        const tau = roundToPracticalTau(thalf*jitterA()*0.6);
         const X0 = Math.round((50+Math.random()*450)/5)*5;
         const CmaxSD = X0/Vd;
         const CminSD = CmaxSD*Math.exp(-K*tau);
@@ -1197,7 +1208,7 @@ const Assessment = (function(){
       unit: "L/h",
       build(){
         const {Vd, K} = anchorVdCl();
-        const tau = Math.max(1, Math.round((0.693/K)*jitterA()));
+        const tau = roundToPracticalTau((0.693/K)*jitterA());
         const X0 = Math.round((50+Math.random()*450)/5)*5;
         const CmaxSD = X0/Vd;
         const RA = 1/(1-Math.exp(-K*tau));
@@ -1335,12 +1346,12 @@ const Assessment = (function(){
     const curves = [
       {points:before, color:"#981E32", fillArea:true, fillOpacity:0.04, noStroke:true},
       {points:after, color:"#981E32", fillArea:true, fillOpacity:0.14, noStroke:true},
-      {points:pts, color:"#981E32", label:`&tau; = ${fmt(tau,1)} h`}
+      {points:pts, color:"#981E32", strokeWidth:1.8, label:`&tau; = ${fmt(tau,1)} h`}
     ];
     const svg = document.getElementById("theoryPlot");
     const hlines = [
-      {c:illustrativeMTC, color:"#981E32", label:"MTC"},
-      {c:illustrativeMEC, color:"#981E32", label:"MEC"}
+      {c:illustrativeMTC, color:"#C0392B", label:"MTC", dash:"1,6", dotted:true, strokeWidth:2.5},
+      {c:illustrativeMEC, color:"#3f7a52", label:"MEC", dash:"1,6", dotted:true, strokeWidth:2.5}
     ];
     drawCurvePlotArea(svg, curves, {logY:false, tMax, yMax:fixedYMax, yMin:0, hlines});
     renderLegend(document.getElementById("theoryLegend"), curves.filter(c=>!c.noStroke));
