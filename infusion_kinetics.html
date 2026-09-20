@@ -581,8 +581,8 @@ function drawCurvePlotArea(svg, curves, opts){
     <g id="hoverLayer" style="display:none; pointer-events:none;">
       <line id="hoverCrosshair" x1="0" y1="${M.top}" x2="0" y2="${M.top+innerH}" stroke="#9AA3B2" stroke-width="1" stroke-dasharray="3,3"/>
       ${dotsHtml}
-      <rect id="hoverTooltipBg" fill="#1F2430" opacity="0.92" rx="6"/>
-      <text id="hoverTooltipText" font-size="12" fill="#fff"></text>
+      <rect id="hoverTooltipBg" fill="#FBF3E6" fill-opacity="0.93" stroke="#981E32" stroke-width="1.3" rx="6"/>
+      <text id="hoverTooltipText" font-size="12"></text>
     </g>
   `);
   svg.__hoverState = {curves, xPx, yPx, tMax, logY, yMin, M, innerW, innerH};
@@ -625,19 +625,38 @@ function attachHoverTooltip(svg, yUnit){
     const xPix = xPx(t);
     svg.querySelector("#hoverCrosshair").setAttribute("x1",xPix.toFixed(1));
     svg.querySelector("#hoverCrosshair").setAttribute("x2",xPix.toFixed(1));
-    const lines = [`t = ${fmt(t,2)} h`];
+    // First line (time) is neutral; each curve's line is colored to match
+    // that curve, so the number can be traced straight back to its line
+    // on the chart without needing to cross-reference the legend.
+    const lines = [{text:`t = ${fmt(t,2)} h`, color:"#1F2430"}];
     curves.forEach((c,i)=>{
-      const val = interpolateCurve(c.points, t);
       const dot = svg.querySelector(`#hoverDot${i}`);
+      // A curve that ends before tMax (e.g. the loading/maintenance
+      // decomposition, which only means anything up to the stop time)
+      // has nothing to report past its own last plotted point --
+      // interpolateCurve would otherwise just return that last value
+      // forever, making a stopped process look like it's still running.
+      const curveEnd = c.points[c.points.length-1].t;
+      if(t > curveEnd + 1e-6){
+        if(dot) dot.style.display="none";
+        return;
+      }
+      const val = interpolateCurve(c.points, t);
       if(dot){ dot.style.display="block"; dot.setAttribute("cx",xPix.toFixed(1)); dot.setAttribute("cy",yPx(state.logY?Math.max(state.yMin,val):val).toFixed(1)); }
-      lines.push(`${stripTags(c.label)}: ${fmt(val,2)} ${yUnit}`);
+      const label = c.labelFn ? c.labelFn(t) : stripTags(c.label);
+      lines.push({text:`${label}: ${fmt(val,2)} ${yUnit}`, color:c.color||"#1F2430"});
     });
-    const tw=210, th=16+lines.length*18;
+    // Width adapts to the longest line instead of a fixed guess -- a fixed
+    // width let long labels push their own number outside the box, onto
+    // the plot itself where it was unreadable.
+    const estCharW = 6.8;
+    const tw = Math.max(...lines.map(l=>l.text.length*estCharW)) + 20;
+    const th = 16+lines.length*18;
     let tx = xPix+12; if(tx+tw > M.left+innerW) tx = xPix-tw-12;
     const ty = M.top+6;
     const bg = svg.querySelector("#hoverTooltipBg"), txt = svg.querySelector("#hoverTooltipText");
-    bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw); bg.setAttribute("height",th);
-    txt.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}">${l}</tspan>`).join("");
+    bg.setAttribute("x",tx.toFixed(1)); bg.setAttribute("y",ty.toFixed(1)); bg.setAttribute("width",tw.toFixed(1)); bg.setAttribute("height",th);
+    txt.innerHTML = lines.map((l,i)=>`<tspan x="${(tx+9).toFixed(1)}" y="${(ty+18+i*18).toFixed(1)}" fill="${l.color}">${l.text}</tspan>`).join("");
   });
   svg.addEventListener("mouseleave", ()=>{ const hl=svg.querySelector("#hoverLayer"); if(hl) hl.style.display="none"; });
 }
@@ -747,7 +766,9 @@ const Sim = (function(){
     } else if(strategy==="bolusLD"){
       sc.Css = makeSliderControl(div, {label:"Target Steady-State Concentration (C<sub>ss</sub>)", min:0.5, max:200, step:0.5, value:20, suffix:"mg/L", onChange:refresh});
       sc.XLD = makeSliderControl(div, {label:"Bolus Loading Dose (X<sub>LD</sub>)", min:1, max:20000, step:1, value:500, suffix:"mg", onChange:refresh});
-      div.insertAdjacentHTML("beforeend", `<div class="btn-row"><button class="btn small" id="simMatchLDBtn">Set loading dose to C<sub>ss</sub>&times;V<sub>d</sub> (matched)</button></div>`);
+      div.insertAdjacentHTML("beforeend", `<div class="btn-row"><button class="btn small" id="simMatchLDBtn">Set loading dose to C<sub>ss</sub>&times;V<sub>d</sub> (matched)</button></div>
+        <div class="readout" id="simMaintRateNote" style="margin-top:8px;"></div>
+        <p class="hint">The chart also shows the loading dose and maintenance infusion as separate dashed curves &mdash; watch how one decays exactly as fast as the other rises, so their sum stays flat at C<sub>ss</sub> the whole time.</p>`);
       document.getElementById("simMatchLDBtn").onclick = ()=>{
         const Vd = ctrls.Vd.getValue();
         setSlider(sc.XLD, Math.round(sc.Css.getValue()*Vd));
@@ -762,6 +783,7 @@ const Sim = (function(){
           <button class="btn small" id="simSolveTBtn">Solve T for this k<sub>0</sub>*</button>
           <button class="btn small" id="simSolveK0Btn">Recalculate k<sub>0</sub>* for this T</button>
         </div>
+        <div class="readout" id="simMaintRateNote" style="margin-top:8px;"></div>
         <div class="phase-note" id="simLoadingNote"></div>`);
       document.getElementById("simSolveTBtn").onclick = ()=>{
         const Vd=ctrls.Vd.getValue(), Cl=ctrls.Cl.getValue(), K=Cl/Vd;
@@ -869,7 +891,7 @@ const Sim = (function(){
   function rowFromSnapshot(snap, labelHtml){
     const K = snap.params.Cl/snap.params.Vd, thalf = 0.693/K, timeToSS = 5*thalf;
     const auc = aucToInfinity(snap.strategy, snap.params, snap.stopTime);
-    return `<tr><td>${labelHtml}</td><td>${fmt(snap.Css,2)}</td><td>${fmt(K,4)}</td><td>${fmt(thalf,2)}</td><td>${fmt(timeToSS,1)}</td><td>${fmt(auc,1)}</td></tr>`;
+    return `<tr><td>${labelHtml}</td><td>${fmt(snap.params.k0,1)}</td><td>${fmt(snap.Css,2)}</td><td>${fmt(K,4)}</td><td>${fmt(thalf,2)}</td><td>${fmt(timeToSS,1)}</td><td>${fmt(auc,1)}</td></tr>`;
   }
 
   function refresh(){
@@ -885,7 +907,35 @@ const Sim = (function(){
     const tMax = xRangeCtrl ? xRangeCtrl.getValue() : Math.max(24, timeToSS*1.4);
     const nPts = 150;
     const pts = curveFromSnapshot(snap, tMax, nPts);
-    const curves = [{points:pts, color:"#981E32", label:`Active (stopped at ${fmt(stopTime,1)} h)`, fillArea:true}];
+    const curves = [{
+      points:pts, color:"#981E32", fillArea:true, label:"Active",
+      // The chart already has a vline for the stop time, so the tooltip
+      // doesn't need to repeat it. For Loading Infusion specifically, the
+      // single Active curve actually represents two different physical
+      // processes depending on when you're looking -- the loading phase
+      // up to T, then the maintenance phase after -- so the tooltip label
+      // switches with hover time rather than staying fixed.
+      labelFn: strategy==="loadingInf" ? (t)=> t<=sc.T.getValue() ? "Loading Infusion" : "Maintenance" : undefined
+    }];
+
+    // The core insight behind a bolus loading dose: the bolus decays while
+    // the maintenance infusion (started at the SAME moment) rises, and the
+    // two exactly cancel -- the loading dose's loss is compensated by the
+    // infusion, which is why the total sits flat at Css from t=0. Only
+    // meaningful up to the stop time; past that there's no separate
+    // "loading" or "maintenance" process left to decompose, just decay.
+    if(strategy==="bolusLD"){
+      const compN = 100;
+      const compEnd = Math.min(stopTime, tMax);
+      const loadingPts = [], maintPts = [];
+      for(let i=0;i<=compN;i++){
+        const t = (i/compN)*compEnd;
+        loadingPts.push({t, c:(p.XLD/p.Vd)*Math.exp(-K*t)});
+        maintPts.push({t, c: infC(p.k0, p.Vd, p.Cl, t)});
+      }
+      curves.push({points:loadingPts, color:"#C77B3A", dashed:true, label:"Loading"});
+      curves.push({points:maintPts, color:"#3f7a52", dashed:true, label:"Maintenance"});
+    }
 
     let refPts = null;
     if(referenceSnapshot){
@@ -915,17 +965,24 @@ const Sim = (function(){
     drawCurvePlotArea(document.getElementById("simSvg"), curves, {logY:isLog, tMax, yMax, yMin, vlines});
     renderLegend(document.getElementById("simLegend"), curves);
 
-    let html = `<tr><th></th><th>C<sub>ss</sub> (mg/L)</th><th>K (h<sup>-1</sup>)</th><th>t&frac12; (h)</th><th>Time to SS (h)</th><th>AUC<sub>0&rarr;&infin;</sub> (mg&middot;h/L)</th></tr>`;
+    let html = `<tr><th></th><th>k<sub>0</sub> (mg/h)</th><th>C<sub>ss</sub> (mg/L)</th><th>K (h<sup>-1</sup>)</th><th>t&frac12; (h)</th><th>Time to SS (h)</th><th>AUC<sub>0&rarr;&infin;</sub> (mg&middot;h/L)</th></tr>
+    <tr><td colspan="7" style="text-align:left; font-weight:400; font-size:0.8rem; color:var(--gray);">k<sub>0</sub> is always the <b>maintenance</b> rate (k<sub>0</sub> = C<sub>ss</sub>&times;Cl) &mdash; for Bolus/Loading Infusion this is separate from the loading dose or loading rate above.</td></tr>`;
     html += rowFromSnapshot(snap, "<b>Active</b>");
     if(referenceSnapshot){
       html += rowFromSnapshot(referenceSnapshot, "<b>Reference</b>").replace('<tr>','<tr class="ref-row">');
     }
     const cAtStop = concAt(stopTime, strategy, p, null);
-    html += `<tr><td colspan="6" style="text-align:left;">Concentration at stop time (${fmt(stopTime,1)} h) = ${fmt(cAtStop,2)} mg/L. AUC is calculated to complete decay (0&rarr;&infin;), independent of the X-axis range above.</td></tr>`;
+    html += `<tr><td colspan="7" style="text-align:left;">Concentration at stop time (${fmt(stopTime,1)} h) = ${fmt(cAtStop,2)} mg/L. AUC is calculated to complete decay (0&rarr;&infin;), independent of the X-axis range above.</td></tr>`;
     document.getElementById("simOutTable").innerHTML = html;
     updateCtTable(snap, referenceSnapshot);
 
+    if(strategy==="bolusLD"){
+      const noteEl = document.getElementById("simMaintRateNote");
+      if(noteEl) noteEl.innerHTML = `<b>Maintenance infusion rate:</b> k<sub>0</sub> = C<sub>ss</sub> &times; Cl = ${fmt(sc.Css.getValue(),2)} &times; ${fmt(p.Cl,3)} = <b>${fmt(p.k0,2)} mg/h</b> &mdash; this is the rate that keeps concentration flat once the bolus decays away, separate from the loading dose above.`;
+    }
     if(strategy==="loadingInf"){
+      const noteEl = document.getElementById("simMaintRateNote");
+      if(noteEl) noteEl.innerHTML = `<b>Maintenance infusion rate:</b> k<sub>0</sub> = C<sub>ss</sub> &times; Cl = ${fmt(sc.Css.getValue(),2)} &times; ${fmt(p.Cl,3)} = <b>${fmt(p.k0,2)} mg/h</b> &mdash; this takes over once the loading infusion ends at t=T, separate from k<sub>0</sub>* above.`;
       const cEnd = infCLoadingInfusion(sc.k0star.getValue(), p.k0, sc.T.getValue(), p.Vd, p.Cl, sc.T.getValue());
       const note = document.getElementById("simLoadingNote");
       if(note) note.innerHTML = `Concentration at end of loading infusion (t=T=${fmt(sc.T.getValue(),2)} h) = <b>${fmt(cEnd,2)} mg/L</b> &mdash; target C<sub>ss</sub> = ${fmt(sc.Css.getValue(),2)} mg/L. ${Math.abs(cEnd-sc.Css.getValue())/sc.Css.getValue()<0.02 ? '<span style="color:var(--safe);font-weight:700;">\u2713 matches</span>' : '<span style="color:var(--warn);font-weight:700;">\u26a0 mismatch \u2014 recalculate k\u2080* or T</span>'}`;
