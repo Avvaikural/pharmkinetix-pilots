@@ -493,8 +493,8 @@ function attachHoverTooltip(svg, yUnit){
       const label = c.labelFn ? c.labelFn(t) : stripTags(c.label);
       lines.push({text:`${label}: ${fmt(val,2)} ${yUnit}`, color:c.color||"#1F2430"});
     });
-    const estCharW = 6.8;
-    const tw = Math.max(...lines.map(l=>l.text.length*estCharW)) + 20;
+    const estCharW = 6.3;
+    const tw = Math.max(...lines.map(l=>l.text.length*estCharW)) + 16;
     const th = 16+lines.length*18;
     let tx = xPix+12; if(tx+tw > M.left+innerW) tx = xPix-tw-12;
     const ty = M.top+6;
@@ -787,8 +787,8 @@ const RelBE = (function(){
       testPts.push({t, c: batemanC(Ftest,doseTest,kaTest,Vd,K,t)});
     }
     const curves = [
-      {points: refPts, color:"#5E6A71", dashed:true, label:`Reference (Dose = ${fmt(doseRef,0)} mg)`, marker:{t:tmaxRef,c:cmaxRef}},
-      {points: testPts, color:"#981E32", label:`Test (Dose = ${fmt(doseTest,0)} mg)`, marker:{t:tmaxTest,c:cmaxTest}}
+      {points: refPts, color:"#5E6A71", dashed:true, fillArea:true, label:`Reference (Dose = ${fmt(doseRef,0)} mg)`, marker:{t:tmaxRef,c:cmaxRef}},
+      {points: testPts, color:"#981E32", fillArea:true, label:`Test (Dose = ${fmt(doseTest,0)} mg)`, marker:{t:tmaxTest,c:cmaxTest}}
     ];
     const svg = document.getElementById("relSvg");
     const yMax = Math.max(cmaxRef,cmaxTest)*1.25;
