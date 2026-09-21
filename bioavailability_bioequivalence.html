@@ -91,6 +91,14 @@
   .btn-row{ display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; align-items:center; }
 
   .readout{ background:var(--gray-light); border-radius:8px; padding:10px 12px; font-size:0.9rem; line-height:1.6; }
+  .data-input-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:14px; margin:14px 0; }
+  .data-input-grid label{ display:block; font-size:0.82rem; color:var(--gray); margin-bottom:4px; }
+  input.data-input{ width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:0.95rem; box-sizing:border-box; }
+  .bar-compare{ margin-top:14px; }
+  .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .bar-row .bar-label{ width:100px; font-size:0.85rem; flex-shrink:0; color:var(--gray); }
+  .bar-row .bar-track{ flex:1; background:var(--gray-light); border-radius:4px; height:24px; position:relative; overflow:hidden; }
+  .bar-row .bar-fill{ height:100%; border-radius:4px; display:flex; align-items:center; padding-left:8px; color:white; font-size:0.78rem; font-weight:700; white-space:nowrap; transition:width 0.2s; }
   .readout b{ color:var(--crimson-dark); }
   .hint{ font-size:0.8rem; color:#7a746a; font-style:italic; }
 
@@ -178,6 +186,7 @@
 
 <nav class="tabs">
   <button data-tab="theory" class="active">Theory</button>
+  <button data-tab="fromdata">From Data</button>
   <button data-tab="absolute">Absolute Bioavailability</button>
   <button data-tab="relative">Relative BA / Bioequivalence</button>
   <button data-tab="assess">Assessment</button>
@@ -216,6 +225,37 @@
     <div class="readout">
       Cmax ratio = 18/20 = <b>90%</b> (within 80–125% ✓) &nbsp;&nbsp; AUC ratio = 88/95 = <b>92.6%</b> (within 80–125% ✓) → <b>Bioequivalent</b>
     </div>
+  </div>
+</section>
+<!-- ================= BIOAVAILABILITY FROM DATA ================= -->
+<section class="tabpanel" id="panel-fromdata">
+  <h2>Bioavailability from Data</h2>
+  <p>F<sub>abs</sub> and F<sub>rel</sub> are pure arithmetic on observed dose and AUC values &mdash; no V<sub>d</sub>, Cl, or k<sub>a</sub> is needed. Use this when you have real data (from a case study, a paper, or your own dataset) and want the bioavailability directly, without assuming PK parameters just to drive a curve.</p>
+
+  <div class="card">
+    <h3><span class="dot"></span>Absolute Bioavailability</h3>
+    <p class="hint" style="margin-top:-4px;">F<sub>abs</sub> = (AUC<sub>oral</sub> / Dose<sub>oral</sub>) &divide; (AUC<sub>IV</sub> / Dose<sub>IV</sub>)</p>
+    <div class="data-input-grid">
+      <div><label>IV Dose (mg)</label><input type="number" class="data-input" id="fdAbsDoseIV" value="100"></div>
+      <div><label>IV AUC (mg&middot;h/L)</label><input type="number" class="data-input" id="fdAbsAUCIV" value="50"></div>
+      <div><label>Oral Dose (mg)</label><input type="number" class="data-input" id="fdAbsDoseOral" value="300"></div>
+      <div><label>Oral AUC (mg&middot;h/L)</label><input type="number" class="data-input" id="fdAbsAUCOral" value="90"></div>
+    </div>
+    <div class="readout" id="fdAbsResult"></div>
+    <div class="bar-compare" id="fdAbsBars"></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>Relative Bioavailability / Bioequivalence</h3>
+    <p class="hint" style="margin-top:-4px;">F<sub>rel</sub> = (AUC<sub>test</sub> / Dose<sub>test</sub>) &divide; (AUC<sub>ref</sub> / Dose<sub>ref</sub>)</p>
+    <div class="data-input-grid">
+      <div><label>Test Dose (mg)</label><input type="number" class="data-input" id="fdRelDoseTest" value="250"></div>
+      <div><label>Test AUC (mg&middot;h/L)</label><input type="number" class="data-input" id="fdRelAUCTest" value="95"></div>
+      <div><label>Reference Dose (mg)</label><input type="number" class="data-input" id="fdRelDoseRef" value="250"></div>
+      <div><label>Reference AUC (mg&middot;h/L)</label><input type="number" class="data-input" id="fdRelAUCRef" value="100"></div>
+    </div>
+    <div class="readout" id="fdRelResult"></div>
+    <div class="bar-compare" id="fdRelBars"></div>
   </div>
 </section>
 <!-- ================= ABSOLUTE BIOAVAILABILITY ================= -->
@@ -590,6 +630,62 @@ function ratioBarHtml(label, ratioPct){
 </script>
 
 <script>
+const FromData = (function(){
+  function calcAbsolute(){
+    const doseIV = parseFloat(document.getElementById("fdAbsDoseIV").value);
+    const aucIV = parseFloat(document.getElementById("fdAbsAUCIV").value);
+    const doseOral = parseFloat(document.getElementById("fdAbsDoseOral").value);
+    const aucOral = parseFloat(document.getElementById("fdAbsAUCOral").value);
+    const result = document.getElementById("fdAbsResult");
+    const barsEl = document.getElementById("fdAbsBars");
+    if([doseIV,aucIV,doseOral,aucOral].some(v=>isNaN(v)||v<=0)){
+      result.innerHTML = "Enter positive values for all four fields.";
+      barsEl.innerHTML = "";
+      return;
+    }
+    const normIV = aucIV/doseIV, normOral = aucOral/doseOral;
+    const F = normOral/normIV;
+    result.innerHTML = `F<sub>abs</sub> = (${fmt(aucOral,2)}/${fmt(doseOral,0)}) &divide; (${fmt(aucIV,2)}/${fmt(doseIV,0)}) = ${fmt(normOral,4)} &divide; ${fmt(normIV,4)} = <b>${fmt(F,3)}</b> (${fmt(F*100,1)}%)`;
+    const maxNorm = Math.max(normIV, normOral);
+    barsEl.innerHTML = `
+      <div class="bar-row"><span class="bar-label">IV</span><div class="bar-track"><div class="bar-fill" style="width:${(normIV/maxNorm*100).toFixed(1)}%; background:#981E32;">${fmt(normIV,3)} mg&middot;h/L per mg</div></div></div>
+      <div class="bar-row"><span class="bar-label">Oral</span><div class="bar-track"><div class="bar-fill" style="width:${(normOral/maxNorm*100).toFixed(1)}%; background:#3f7a52;">${fmt(normOral,3)} mg&middot;h/L per mg</div></div></div>
+    `;
+  }
+  function calcRelative(){
+    const doseTest = parseFloat(document.getElementById("fdRelDoseTest").value);
+    const aucTest = parseFloat(document.getElementById("fdRelAUCTest").value);
+    const doseRef = parseFloat(document.getElementById("fdRelDoseRef").value);
+    const aucRef = parseFloat(document.getElementById("fdRelAUCRef").value);
+    const result = document.getElementById("fdRelResult");
+    const barsEl = document.getElementById("fdRelBars");
+    if([doseTest,aucTest,doseRef,aucRef].some(v=>isNaN(v)||v<=0)){
+      result.innerHTML = "Enter positive values for all four fields.";
+      barsEl.innerHTML = "";
+      return;
+    }
+    const normTest = aucTest/doseTest, normRef = aucRef/doseRef;
+    const Frel = normTest/normRef, pct = Frel*100;
+    const withinBE = pct>=80 && pct<=125;
+    result.innerHTML = `F<sub>rel</sub> = (${fmt(aucTest,2)}/${fmt(doseTest,0)}) &divide; (${fmt(aucRef,2)}/${fmt(doseRef,0)}) = <b>${fmt(Frel,3)}</b> (${fmt(pct,1)}%)<br>${withinBE ? '<span style="color:var(--safe); font-weight:700;">\u2713 Within 80\u2013125% bioequivalence window</span>' : '<span style="color:var(--warn); font-weight:700;">\u26a0 Outside 80\u2013125% bioequivalence window</span>'}`;
+    const maxNorm = Math.max(normTest, normRef);
+    barsEl.innerHTML = `
+      <div class="bar-row"><span class="bar-label">Test</span><div class="bar-track"><div class="bar-fill" style="width:${(normTest/maxNorm*100).toFixed(1)}%; background:#981E32;">${fmt(normTest,3)} mg&middot;h/L per mg</div></div></div>
+      <div class="bar-row"><span class="bar-label">Reference</span><div class="bar-track"><div class="bar-fill" style="width:${(normRef/maxNorm*100).toFixed(1)}%; background:#5E6A71;">${fmt(normRef,3)} mg&middot;h/L per mg</div></div></div>
+    `;
+  }
+  function init(){
+    ["fdAbsDoseIV","fdAbsAUCIV","fdAbsDoseOral","fdAbsAUCOral"].forEach(id=>{
+      document.getElementById(id).addEventListener("input", calcAbsolute);
+    });
+    ["fdRelDoseTest","fdRelAUCTest","fdRelDoseRef","fdRelAUCRef"].forEach(id=>{
+      document.getElementById(id).addEventListener("input", calcRelative);
+    });
+    calcAbsolute();
+    calcRelative();
+  }
+  return {init};
+})();
 const AbsBA = (function(){
   let scaleMode = "linear";
   let doseMode = "shared"; // "shared" | "different"
@@ -1135,6 +1231,7 @@ document.querySelectorAll("nav.tabs button").forEach(btn=>{
   };
 });
 
+FromData.init();
 AbsBA.init();
 RelBE.init();
 Assessment.init();
