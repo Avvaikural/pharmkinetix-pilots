@@ -171,6 +171,27 @@
   .strategy-btn b{ display:block; font-size:0.88rem; color:var(--crimson-dark); margin-bottom:2px; }
   .strategy-btn.active{ border-color:var(--crimson); background:var(--warn-bg); }
   .phase-note{ font-size:0.8rem; color:var(--gray); margin-top:4px; }
+
+  /* ---- Compact real-drug preset row with hover tooltips ---- */
+  .preset-row{ display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; }
+  .preset-btn{
+    position:relative; flex:0 0 auto; padding:7px 14px; border-radius:20px;
+    border:1.5px solid var(--crimson); background:#fff; color:var(--crimson-dark);
+    font-family:inherit; font-size:0.85rem; font-weight:700; cursor:pointer;
+  }
+  .preset-btn.active{ background:var(--crimson); color:#fff; }
+  .preset-btn .preset-tip{
+    visibility:hidden; opacity:0; position:absolute; bottom:calc(100% + 9px); left:50%;
+    transform:translateX(-50%); width:230px; background:#fff; border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; font-size:0.8rem; font-weight:400; color:var(--ink);
+    line-height:1.4; text-align:left; box-shadow:0 4px 16px rgba(0,0,0,0.14); z-index:30;
+    transition:opacity 0.12s ease;
+  }
+  .preset-btn .preset-tip::after{
+    content:""; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:6px solid transparent; border-top-color:var(--line);
+  }
+  .preset-btn:hover .preset-tip, .preset-btn:focus .preset-tip{ visibility:visible; opacity:1; }
   .ref-chip{
     display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--gray);
     border-radius:20px; padding:7px 14px; font-size:0.9rem; margin-top:8px; color:var(--gray); font-weight:700;
@@ -275,35 +296,28 @@
   <div class="twocol">
     <div class="col">
       <div class="panel card">
-        <h3 style="margin-top:0;">Real-Drug Presets</h3>
-        <p class="hint" style="margin-top:-2px;">Three real drugs, each the standard clinical illustration of one strategy \u2014 loads every parameter, including the pump rate a nurse would actually set.</p>
-        <div class="strategy-row" id="simPresetRow">
-          <button class="strategy-btn" data-preset="esmolol"><b>Esmolol</b>Short t&frac12; \u2014 continuous infusion alone reaches C<sub>ss</sub> in ~45 min</button>
-          <button class="strategy-btn" data-preset="valproic"><b>Valproic Acid</b>Long t&frac12;, wide margin \u2014 safe bolus loading dose</button>
-          <button class="strategy-btn" data-preset="aminophylline"><b>Aminophylline</b>Long t&frac12;, narrow margin \u2014 controlled loading infusion</button>
-        </div>
-        <p class="hint" id="simPresetNote" style="margin-top:6px;"></p>
-      </div>
-
-      <div class="panel card">
-        <h3 style="margin-top:0;">Patient / Drug Parameters</h3>
-        <div id="simSharedControls"></div>
-        <button class="btn small" id="simSetRefBtn">Set as Reference</button>
-        <div id="simRefChipWrap"></div>
-      </div>
-
-      <div class="panel card">
         <h3 style="margin-top:0;">Infusion Strategy</h3>
         <div class="strategy-row" id="simStrategyRow">
           <button class="strategy-btn active" data-strategy="continuous"><b>Continuous Infusion</b>Constant rate only</button>
           <button class="strategy-btn" data-strategy="bolusLD"><b>Bolus Loading Dose</b>+ continuous infusion</button>
           <button class="strategy-btn" data-strategy="loadingInf"><b>Loading Infusion</b>+ maintenance infusion</button>
         </div>
-        <div id="simStrategyControls"></div>
+        <p class="hint" style="margin:10px 0 2px;">Or load a real drug &mdash; hover a name for what it illustrates, click to load every parameter including the pump rate a nurse would actually set:</p>
+        <div class="preset-row" id="simPresetRow">
+          <button class="strategy-btn preset-btn" data-preset="esmolol">Esmolol<span class="preset-tip">Short t&frac12; &mdash; continuous infusion alone reaches C<sub>ss</sub> in ~45 min.</span></button>
+          <button class="strategy-btn preset-btn" data-preset="valproic">Valproic Acid<span class="preset-tip">Long t&frac12;, wide margin &mdash; safe to use a bolus loading dose.</span></button>
+          <button class="strategy-btn preset-btn" data-preset="aminophylline">Aminophylline<span class="preset-tip">Long t&frac12;, narrow margin &mdash; needs a controlled loading infusion instead.</span></button>
+        </div>
+        <p class="hint" id="simPresetNote" style="margin-top:6px;"></p>
       </div>
 
       <div class="panel card">
-        <h3 style="margin-top:0;">Infusion Duration</h3>
+        <h3 style="margin-top:0;">Patient-Specific Parameters</h3>
+        <div id="simSharedControls"></div>
+        <button class="btn small" id="simSetRefBtn">Set as Reference</button>
+        <div id="simRefChipWrap"></div>
+        <div id="simStrategyControls" style="margin-top:10px;"></div>
+        <h4 style="margin:14px 0 2px;">Infusion Duration</h4>
         <p class="hint" style="margin-top:-2px;">Every infusion has to stop sometime for AUC to mean anything &mdash; this isn't optional. The X-axis range (next to the chart) only controls what the plot shows; it never affects AUC.</p>
         <div id="simStopSlot"></div>
       </div>
@@ -344,7 +358,7 @@
 
   <div class="card">
     <h3><span class="dot"></span>Case 1 — Effect of Cl and V<sub>d</sub> on C<sub>ss</sub> and Time to Steady State</h3>
-    <div class="btn-row"><button class="btn small" id="c1GenerateBtn">\u21bb Generate new scenario</button></div>
+    <div class="btn-row"><button class="btn small" id="c1GenerateBtn">&#8635; Generate new scenario</button></div>
     <div class="readout" id="c1Given" style="margin:10px 0;"></div>
     <table class="compact" id="c1Table"></table>
     <div class="btn-row" style="margin-top:8px;">
@@ -355,7 +369,7 @@
 
   <div class="card">
     <h3><span class="dot"></span>Case 2 — Bolus Loading Dose + Continuous Infusion</h3>
-    <div class="btn-row"><button class="btn small" id="c2GenerateBtn">\u21bb Generate new scenario</button></div>
+    <div class="btn-row"><button class="btn small" id="c2GenerateBtn">&#8635; Generate new scenario</button></div>
     <div class="readout" id="c2Given" style="margin:10px 0;"></div>
     <table class="compact" id="c2Table"></table>
     <div class="btn-row" style="margin-top:8px;">
@@ -367,7 +381,7 @@
 
   <div class="card">
     <h3><span class="dot"></span>Case 3 — Loading Infusion + Maintenance Infusion</h3>
-    <div class="btn-row"><button class="btn small" id="c3GenerateBtn">\u21bb Generate new scenario</button></div>
+    <div class="btn-row"><button class="btn small" id="c3GenerateBtn">&#8635; Generate new scenario</button></div>
     <div class="readout" id="c3Given" style="margin:10px 0;"></div>
     <table class="compact" id="c3Table"></table>
     <div class="btn-row" style="margin-top:8px;">
@@ -379,7 +393,7 @@
 
   <div class="card">
     <h3><span class="dot"></span>Case 4 — Concentration After Stopping the Infusion</h3>
-    <div class="btn-row"><button class="btn small" id="c4GenerateBtn">\u21bb Generate new scenario</button></div>
+    <div class="btn-row"><button class="btn small" id="c4GenerateBtn">&#8635; Generate new scenario</button></div>
     <div class="readout" id="c4Given" style="margin:10px 0;"></div>
     <table class="compact" id="c4Table"></table>
     <div class="btn-row" style="margin-top:8px;">
@@ -808,12 +822,82 @@ const Sim = (function(){
   let sc = {};    // strategy-specific controls
   let stopCtrl = null, xRangeCtrl = null;
   let referenceSnapshot = null;
+  let vdClMode = "absolute";
+
+  // Actual absolute Vd/Cl regardless of display mode -- every other
+  // function reads through these two rather than the sliders directly, so
+  // per-kg mode is a display convenience, not a second code path.
+  function actualVd(){
+    const raw = ctrls.Vd.getValue();
+    return vdClMode==="perkg" ? raw*ctrls.weight.getValue() : raw;
+  }
+  function actualCl(){
+    const raw = ctrls.Cl.getValue();
+    return vdClMode==="perkg" ? raw*ctrls.weight.getValue() : raw;
+  }
+  // Sets the sliders from an ABSOLUTE Vd/Cl pair, converting to per-kg
+  // display values first if that's the current mode -- used by preset
+  // loading and strategy switching, which both think in absolute terms.
+  function setActualVdCl(vdAbs, clAbs){
+    if(vdClMode==="perkg"){
+      const w = ctrls.weight.getValue();
+      setSlider(ctrls.Vd, Math.round((vdAbs/w)*1000)/1000);
+      setSlider(ctrls.Cl, Math.round((clAbs/w)*1000)/1000);
+    } else {
+      setSlider(ctrls.Vd, vdAbs);
+      setSlider(ctrls.Cl, clAbs);
+    }
+  }
 
   function renderSharedControls(){
     const div = document.getElementById("simSharedControls");
     div.innerHTML = "";
+    ctrls.weight = makeSliderControl(div, {label:"Patient Body Weight", min:30, max:150, step:1, value:70, suffix:"kg", onChange:onWeightChange});
+    div.insertAdjacentHTML("beforeend", `<div class="btn-row" id="simVdClModeRow" style="margin:4px 0 10px;">
+      <button type="button" class="btn small active" data-mode="absolute">Enter V<sub>d</sub>/Cl directly</button>
+      <button type="button" class="btn small" data-mode="perkg">Enter V<sub>d</sub>/Cl per kg</button>
+    </div>`);
     ctrls.Vd = makeSliderControl(div, {label:"Volume of Distribution (V<sub>d</sub>)", min:5, max:300, step:1, value:50, suffix:"L", onChange:refresh});
     ctrls.Cl = makeSliderControl(div, {label:"Clearance (Cl)", min:0.5, max:50, step:0.1, value:10, suffix:"L/h", onChange:refresh});
+
+    document.querySelectorAll("#simVdClModeRow button").forEach(btn=>{
+      btn.onclick = ()=>{
+        if(btn.dataset.mode===vdClMode) return;
+        // Convert the CURRENT absolute Vd/Cl into whichever units the new
+        // mode uses, so switching modes doesn't silently change the
+        // patient's actual Vd/Cl out from under the rest of the tab.
+        const vdAbs = actualVd(), clAbs = actualCl();
+        document.querySelectorAll("#simVdClModeRow button").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        vdClMode = btn.dataset.mode;
+        updateVdClLabels();
+        setActualVdCl(vdAbs, clAbs);
+        refresh();
+      };
+    });
+    updateVdClLabels();
+  }
+  function updateVdClLabels(){
+    const perkg = vdClMode==="perkg";
+    ctrls.Vd.el.querySelector(".ctrl-label-row span").innerHTML = perkg ? "Volume of Distribution (V<sub>d</sub>, per kg)" : "Volume of Distribution (V<sub>d</sub>)";
+    ctrls.Cl.el.querySelector(".ctrl-label-row span").innerHTML = perkg ? "Clearance (Cl, per kg)" : "Clearance (Cl)";
+    ctrls.Vd.el.querySelector(".input-unit").textContent = perkg ? "L/kg" : "L";
+    ctrls.Cl.el.querySelector(".input-unit").textContent = perkg ? "L/h/kg" : "L/h";
+    const vdSlider = ctrls.Vd.el.querySelector(".s-slider"), vdMin = ctrls.Vd.el.querySelector(".s-min"), vdMax = ctrls.Vd.el.querySelector(".s-max");
+    const clSlider = ctrls.Cl.el.querySelector(".s-slider"), clMin = ctrls.Cl.el.querySelector(".s-min"), clMax = ctrls.Cl.el.querySelector(".s-max");
+    if(perkg){
+      vdSlider.min=vdMin.value=0.05; vdSlider.max=vdMax.value=6; vdSlider.step=0.01;
+      clSlider.min=clMin.value=0.01; clSlider.max=clMax.value=2; clSlider.step=0.01;
+    } else {
+      vdSlider.min=vdMin.value=5; vdSlider.max=vdMax.value=300; vdSlider.step=1;
+      clSlider.min=clMin.value=0.5; clSlider.max=clMax.value=50; clSlider.step=0.1;
+    }
+  }
+  function onWeightChange(){
+    // In per-kg mode the absolute Vd/Cl the model actually uses depend on
+    // weight, so a weight change needs a redraw even though the Vd/Cl
+    // slider values themselves haven't moved.
+    refresh();
   }
 
   function renderStrategyControls(){
@@ -829,7 +913,7 @@ const Sim = (function(){
         <div class="readout" id="simMaintRateNote" style="margin-top:8px;"></div>
         <p class="hint">The chart also shows the loading dose and maintenance infusion as separate dashed curves &mdash; watch how one decays exactly as fast as the other rises, so their sum stays flat at C<sub>ss</sub> the whole time.</p>`);
       document.getElementById("simMatchLDBtn").onclick = ()=>{
-        const Vd = ctrls.Vd.getValue();
+        const Vd = actualVd();
         setSlider(sc.XLD, Math.round(sc.Css.getValue()*Vd));
         refresh();
       };
@@ -845,14 +929,14 @@ const Sim = (function(){
         <div class="readout" id="simMaintRateNote" style="margin-top:8px;"></div>
         <div class="phase-note" id="simLoadingNote"></div>`);
       document.getElementById("simSolveTBtn").onclick = ()=>{
-        const Vd=ctrls.Vd.getValue(), Cl=ctrls.Cl.getValue(), K=Cl/Vd;
+        const Vd=actualVd(), Cl=actualCl(), K=Cl/Vd;
         const T = loadingInfusionT(sc.Css.getValue(), Cl, sc.k0star.getValue(), K);
         if(T==null || !isFinite(T) || T<=0){ alert("k0* is too small to ever reach this target Css. Increase k0* first."); return; }
         setSlider(sc.T, Math.min(sc.T.el.querySelector('.s-slider').max*1, parseFloat(T.toFixed(3))));
         refresh();
       };
       document.getElementById("simSolveK0Btn").onclick = ()=>{
-        const Vd=ctrls.Vd.getValue(), Cl=ctrls.Cl.getValue(), K=Cl/Vd;
+        const Vd=actualVd(), Cl=actualCl(), K=Cl/Vd;
         const k0s = loadingInfusionK0star(sc.Css.getValue(), Cl, K, sc.T.getValue());
         setSlider(sc.k0star, Math.round(k0s));
         refresh();
@@ -861,7 +945,7 @@ const Sim = (function(){
   }
 
   function currentParams(){
-    const Vd = ctrls.Vd.getValue(), Cl = ctrls.Cl.getValue();
+    const Vd = actualVd(), Cl = actualCl();
     if(strategy==="continuous"){
       return {Vd, Cl, k0: sc.k0.getValue()};
     } else if(strategy==="bolusLD"){
@@ -1156,8 +1240,7 @@ const Sim = (function(){
     document.querySelectorAll("#simStrategyRow .strategy-btn").forEach(b=>b.classList.toggle("active", b.dataset.strategy===newStrat));
     renderStrategyControls();
     const vc = STRATEGY_VDCL[newStrat];
-    setSlider(ctrls.Vd, vc.Vd);
-    setSlider(ctrls.Cl, vc.Cl);
+    setActualVdCl(vc.Vd, vc.Cl);
     setSlider(stopCtrl, vc.stopTime);
     resetXRange();
     refresh();
@@ -1189,8 +1272,7 @@ const Sim = (function(){
     strategy = p.strategy;
     document.querySelectorAll("#simStrategyRow .strategy-btn").forEach(b=>b.classList.toggle("active", b.dataset.strategy===p.strategy));
     renderStrategyControls();
-    setSlider(ctrls.Vd, p.Vd);
-    setSlider(ctrls.Cl, p.Cl);
+    setActualVdCl(p.Vd, p.Cl);
     if(p.strategy==="continuous"){
       setSlider(sc.k0, p.k0);
     } else if(p.strategy==="bolusLD"){
