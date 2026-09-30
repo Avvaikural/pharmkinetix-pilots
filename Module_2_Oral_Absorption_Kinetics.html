@@ -1123,6 +1123,17 @@ const Sim = (function(){
 
   function attachHover(){
     const svg = document.getElementById("simSvg");
+// Hover readout snap grid: without this, the reported time is whatever
+// raw fraction the mouse pixel happens to land on, which makes it nearly
+// impossible to land exactly on a reference time like 0.5 or 2 h when
+// reading values off by hand for an activity. The step scales with the
+// visible X-axis range so it stays a fine enough grid at any zoom level.
+function hoverSnapStep(tMax){
+  if(tMax<=12) return 0.05;
+  if(tMax<=48) return 0.1;
+  if(tMax<=200) return 0.25;
+  return 0.5;
+}
     svg.addEventListener("mousemove",(e)=>{
       const state = svg.__chartState;
       const hoverLayer = svg.querySelector("#simHoverLayer");
@@ -1135,6 +1146,8 @@ const Sim = (function(){
       }
       let t = ((svgP.x-SIM_PAD.left)/SIM_PLOT_W)*state.tMax;
       t = Math.max(0, Math.min(state.tMax, t));
+      const snapStep = hoverSnapStep(state.tMax);
+      t = Math.max(0, Math.min(state.tMax, Math.round(t/snapStep)*snapStep));
       const factor = concFactor();
       const activeC = batemanC(state.activeR.F,state.activeR.X0,state.activeR.ka,state.activeR.VD,state.activeR.K,t)*factor;
       const xPix = simXScale(t,state.tMax), yPixActive = simYScale(activeC,state.bounds,state.mode);
@@ -1926,11 +1939,13 @@ const MOR = (function(){
       if(svgP.x<M.left || svgP.x>meta.W-M.right || svgP.y<M.top || svgP.y>meta.H-M.bottom){
         hoverLayer.style.display="none"; return;
       }
-      // Crosshair follows the CONTINUOUS mouse position (not snapped) so it
-      // can sit anywhere along a drawn line, the same way the Simulation
-      // tab's hover works on its smooth curve.
+      // Snapped to the same adaptive grid as every other chart's hover, so
+      // a reference time like 0.5 or 2 h can be landed on exactly rather
+      // than needing pixel-perfect mouse placement.
       let tHover = ((svgP.x-M.left)/meta.innerW)*T_MAX;
       tHover = Math.max(0, Math.min(T_MAX, tHover));
+      const snapStepMor = hoverSnapStep(T_MAX);
+      tHover = Math.max(0, Math.min(T_MAX, Math.round(tHover/snapStepMor)*snapStepMor));
       const xPix = xToPx(tHover, meta.W, meta.innerW);
       hoverLayer.style.display="block";
       svg.querySelector("#morHoverCrosshair").setAttribute("x1",xPix.toFixed(1));
