@@ -504,6 +504,18 @@ function roundToPracticalDuration(t){
   });
   return best;
 }
+// Hover readout snap grid: without this, the reported time is whatever
+// raw fraction the mouse pixel happens to land on (e.g. 0.4837 h), which
+// makes it nearly impossible to land exactly on a reference time like
+// 0.5 or 2 h when reading values off by hand for an activity. The step
+// scales with the visible X-axis range so it stays a fine enough grid at
+// any zoom level, not just a fixed increment tuned for one case.
+function hoverSnapStep(tMax){
+  if(tMax<=12) return 0.05;
+  if(tMax<=48) return 0.1;
+  if(tMax<=200) return 0.25;
+  return 0.5;
+}
 
 const SVGNS = "http://www.w3.org/2000/svg";
 function el(tag, attrs){
@@ -694,6 +706,8 @@ function attachHoverTooltip(svg, yUnit){
     }
     let t = ((svgP.x-M.left)/innerW)*tMax;
     t = Math.max(0, Math.min(tMax, t));
+    const snapStep = hoverSnapStep(tMax);
+    t = Math.max(0, Math.min(tMax, Math.round(t/snapStep)*snapStep));
     hoverLayer.style.display="block";
     const xPix = xPx(t);
     svg.querySelector("#hoverCrosshair").setAttribute("x1",xPix.toFixed(1));
@@ -999,9 +1013,14 @@ const Sim = (function(){
     return aucToStop + tailAUC;
   }
 
+  // Time labels have to identify the EXACT instant each concentration was
+  // computed at. Decline-phase rows sit at stop + n*t1/2, which is almost
+  // never a whole number (e.g. 225.57 h), so rounding the label to whole
+  // hours made the row read "226 h" next to the concentration for 225.57 h --
+  // and C(226 h) is a different number. Times are stored on a 0.01 h grid,
+  // so two decimals is exact; whole-number times stay whole for readability.
   function fmtTime(t){
-    if(t>=100) return fmt(t,0);
-    if(t>=10) return fmt(t,1);
+    if(Math.abs(t-Math.round(t)) < 0.005) return String(Math.round(t));
     return fmt(t,2);
   }
   // Rise-phase points at whole-number-ish multiples of the half-life
