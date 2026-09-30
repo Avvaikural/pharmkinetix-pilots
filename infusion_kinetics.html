@@ -1212,30 +1212,12 @@ const Sim = (function(){
     if(strategy==="loadingInf") vlines.push({t:sc.T.getValue(), label:"end of loading infusion", color:"#3f7a52"});
 
     const allC = pts.map(pt=>pt.c).concat(refPts ? refPts.map(pt=>pt.c) : []);
-    const peak = Math.max(snap.Css, referenceSnapshot?referenceSnapshot.Css:0, ...allC);
-    // If a Reference curve from an earlier, much higher-concentration
-    // scenario is still active, it keeps the axis scaled to fit it even
-    // after the active curve has since dropped to something far smaller --
-    // mathematically correct (both curves share one axis so they can be
-    // compared), but easy to mistake for the axis being "stuck" if you've
-    // moved on and forgotten the reference is still there. Surface it
-    // directly rather than leaving it to be inferred from the chip alone.
-    const refChip = document.getElementById("simRefChipWrap");
-    if(referenceSnapshot && refChip && refChip.querySelector(".ref-chip")){
-      const refDominates = referenceSnapshot.Css > snap.Css*1.5;
-      let dominanceNote = refChip.querySelector(".ref-dominance-note");
-      if(refDominates){
-        if(!dominanceNote){
-          dominanceNote = document.createElement("div");
-          dominanceNote.className = "ref-dominance-note hint";
-          dominanceNote.style.marginTop = "4px";
-          refChip.appendChild(dominanceNote);
-        }
-        dominanceNote.innerHTML = `Y-axis is scaled to fit this Reference (C<sub>ss</sub> = ${fmt(referenceSnapshot.Css,2)} mg/L) as well as the active curve &mdash; that's why it isn't shrinking to match your current C<sub>ss</sub> of ${fmt(snap.Css,2)} mg/L. Clear the reference (&times; above) if you only want to see the active curve's own scale.`;
-      } else if(dominanceNote){
-        dominanceNote.remove();
-      }
-    }
+    // The axis reflects what the curve actually does within the displayed
+    // window, not the theoretical asymptotic Css it would eventually
+    // reach given enough time -- those only coincide once the window is
+    // long enough to get there. A small floor avoids a degenerate
+    // near-zero axis right at t=0 before anything's risen yet.
+    const peak = Math.max(0.01, ...allC);
     // Log scale needs proportionally more headroom than linear -- a modest
     // 1.25x multiplier leaves a flat Css line looking like it's pinned to
     // the top of the plot, since log compresses visual distance near the
