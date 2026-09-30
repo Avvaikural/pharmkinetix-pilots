@@ -500,6 +500,18 @@ function interpolateCurve(points, t){
   return points[points.length-1].c;
 }
 function stripTags(html){ return html.replace(/<[^>]*>/g, ""); }
+// Hover readout snap grid: without this, the reported time is whatever
+// raw fraction the mouse pixel happens to land on (e.g. 0.4837 h), which
+// makes it nearly impossible to land exactly on a reference time like
+// 0.5 or 2 h when reading values off by hand for an activity. The step
+// scales with the visible X-axis range so it stays a fine enough grid at
+// any zoom level, not just a fixed increment tuned for one case.
+function hoverSnapStep(tMax){
+  if(tMax<=12) return 0.05;
+  if(tMax<=48) return 0.1;
+  if(tMax<=200) return 0.25;
+  return 0.5;
+}
 function attachHoverTooltip(svg, yUnit){
   if(svg.__hoverAttached) return;
   svg.__hoverAttached = true;
@@ -516,6 +528,8 @@ function attachHoverTooltip(svg, yUnit){
     }
     let t = ((svgP.x-M.left)/innerW)*tMax;
     t = Math.max(0, Math.min(tMax, t));
+    const snapStep = hoverSnapStep(tMax);
+    t = Math.max(0, Math.min(tMax, Math.round(t/snapStep)*snapStep));
     hoverLayer.style.display="block";
     const xPix = xPx(t);
     svg.querySelector("#hoverCrosshair").setAttribute("x1",xPix.toFixed(1));
