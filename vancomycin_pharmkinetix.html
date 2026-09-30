@@ -923,6 +923,17 @@ function renderChart(svgEl, activeR, refR, mode, tMax, concScale, concUnit, mecV
 // Tracks the mouse over a chart's SVG and shows a crosshair + tooltip with the
 // exact (t, C) reading, reading whatever state was last stashed by renderChart
 // so it stays correct across slider changes without re-attaching listeners.
+// Hover readout snap grid: without this, the reported time is whatever
+// raw fraction the mouse pixel happens to land on, which makes it nearly
+// impossible to land exactly on a reference time like 0.5 or 2 h when
+// reading values off by hand for an activity. The step scales with the
+// visible X-axis range so it stays a fine enough grid at any zoom level.
+function hoverSnapStep(tMax){
+  if(tMax<=12) return 0.05;
+  if(tMax<=48) return 0.1;
+  if(tMax<=200) return 0.25;
+  return 0.5;
+}
 function attachHover(svgEl){
   svgEl.addEventListener('mousemove', (e)=>{
     const state = svgEl.__chartState;
@@ -941,6 +952,8 @@ function attachHover(svgEl){
 
     let t = ((svgP.x - PAD.left) / PLOT_W) * state.tMax;
     t = Math.max(0, Math.min(state.tMax, t));
+    const snapStep = hoverSnapStep(state.tMax);
+    t = Math.max(0, Math.min(state.tMax, Math.round(t/snapStep)*snapStep));
     const scale = state.concScale || 1;
     const unit = state.concUnit || 'mg/L';
     const activeC = state.activeR.C0 * Math.exp(-state.activeR.ke * t) * scale;
